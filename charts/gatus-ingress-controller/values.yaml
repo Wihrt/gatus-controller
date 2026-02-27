@@ -1,3 +1,11 @@
+crds:
+  # Additional annotations to add to each CRD (e.g. for ArgoCD sync options).
+  # Requires Helm v4, which supports templating in the crds/ directory.
+  # Example:
+  #   annotations:
+  #     argocd.argoproj.io/sync-options: Replace=true
+  annotations: {}
+
 replicaCount: 1
 
 image:
