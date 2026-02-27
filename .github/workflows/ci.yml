@@ -77,5 +77,8 @@ jobs:
         run: |
           docker save gatus-ingress-controller:ci-test | sudo k3s ctr images import -
 
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
       - name: Run e2e tests
         run: bash tests/e2e/run.sh ci-test
