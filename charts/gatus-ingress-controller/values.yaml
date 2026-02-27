@@ -1,0 +1,34 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/wihrt/gatus-ingress-controller
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+serviceAccount:
+  create: true
+  name: ""
+
+# Ingress controller configuration
+ingressClass: traefik
+
+# Namespace where the Gatus ConfigMap will be written
+targetNamespace: gatus
+
+# Gateway API (HTTPRoute) support.
+# Set enabled: true only when the Gateway API CRDs are installed in the cluster.
+gatewayApi:
+  # Whether to enable the HTTPRoute controller. Disabled by default because
+  # the Gateway API CRDs are not part of standard Kubernetes.
+  enabled: false
+  # Comma-separated list of Gateway names whose HTTPRoutes should be watched.
+  # Leave empty to watch HTTPRoutes referencing any Gateway.
+  gatewayNames: ""
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
