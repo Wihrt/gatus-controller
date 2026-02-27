@@ -51,6 +51,8 @@ jobs:
   e2e:
     name: E2E tests (k3s)
     runs-on: ubuntu-latest
+    env:
+      IMAGE_REGISTRY: gatus-ingress-controller
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
