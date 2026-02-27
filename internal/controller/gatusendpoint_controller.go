@@ -1,157 +1,321 @@
 package controller
 
 import (
-	"context"
-	"fmt"
+"context"
+"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"gopkg.in/yaml.v3"
+corev1 "k8s.io/api/core/v1"
+"k8s.io/apimachinery/pkg/api/errors"
+metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+"k8s.io/apimachinery/pkg/runtime"
+"k8s.io/apimachinery/pkg/types"
+ctrl "sigs.k8s.io/controller-runtime"
+"sigs.k8s.io/controller-runtime/pkg/client"
+"sigs.k8s.io/controller-runtime/pkg/log"
+"gopkg.in/yaml.v3"
 
-	monitoringv1alpha1 "github.com/Wihrt/gatus-ingress-controller/api/v1alpha1"
+monitoringv1alpha1 "github.com/Wihrt/gatus-ingress-controller/api/v1alpha1"
 )
 
 const (
-	configMapName = "gatus-config"
-	configMapKey  = "endpoints.yaml"
+configMapName    = "gatus-config"
+endpointsKey     = "endpoints.yaml"
 )
 
+// GatusEndpointReconciler reconciles GatusEndpoint resources and aggregates them
+// into a ConfigMap containing the Gatus endpoints configuration.
 type GatusEndpointReconciler struct {
-	client.Client
-	Scheme          *runtime.Scheme
-	TargetNamespace string
+client.Client
+Scheme          *runtime.Scheme
+TargetNamespace string
 }
 
-type gatusEndpointConfig struct {
-	Name       string             `yaml:"name"`
-	Group      string             `yaml:"group,omitempty"`
-	URL        string             `yaml:"url"`
-	Conditions []string           `yaml:"conditions,omitempty"`
-	Alerts     []gatusAlertConfig `yaml:"alerts,omitempty"`
-	DNS        *gatusDNSConfig    `yaml:"dns,omitempty"`
-	UI         *gatusUIConfig     `yaml:"ui,omitempty"`
+// --- Internal YAML representation types (matching Gatus config format) ---
+
+type gatusConfigFile struct {
+Endpoints []gatusEndpointYAML `yaml:"endpoints"`
 }
 
-type gatusAlertConfig struct {
-	Type             string `yaml:"type"`
-	FailureThreshold int    `yaml:"failure-threshold"`
-	SendOnResolved   bool   `yaml:"send-on-resolved"`
+type gatusEndpointYAML struct {
+Name               string                    `yaml:"name"`
+Enabled            bool                      `yaml:"enabled,omitempty"`
+Group              string                    `yaml:"group,omitempty"`
+URL                string                    `yaml:"url"`
+Method             string                    `yaml:"method,omitempty"`
+Interval           string                    `yaml:"interval,omitempty"`
+Body               string                    `yaml:"body,omitempty"`
+Headers            map[string]string         `yaml:"headers,omitempty"`
+GraphQL            bool                      `yaml:"graphql,omitempty"`
+Conditions         []string                  `yaml:"conditions,omitempty"`
+Alerts             []gatusAlertYAML          `yaml:"alerts,omitempty"`
+DNS                *gatusDNSYAML             `yaml:"dns,omitempty"`
+SSH                *gatusSSHYAML             `yaml:"ssh,omitempty"`
+Client             *gatusClientYAML          `yaml:"client,omitempty"`
+UI                 *gatusUIYAML              `yaml:"ui,omitempty"`
+MaintenanceWindows []gatusMaintenanceWinYAML `yaml:"maintenance-windows,omitempty"`
+ExtraLabels        map[string]string         `yaml:"extra-labels,omitempty"`
 }
 
-type gatusDNSConfig struct {
-	QueryName string `yaml:"query-name"`
-	QueryType string `yaml:"query-type"`
+type gatusAlertYAML struct {
+Type                    string `yaml:"type"`
+Enabled                 bool   `yaml:"enabled,omitempty"`
+Description             string `yaml:"description,omitempty"`
+FailureThreshold        int    `yaml:"failure-threshold,omitempty"`
+SuccessThreshold        int    `yaml:"success-threshold,omitempty"`
+SendOnResolved          bool   `yaml:"send-on-resolved,omitempty"`
+MinimumReminderInterval string `yaml:"minimum-reminder-interval,omitempty"`
 }
 
-type gatusUIConfig struct {
-	HideHostname bool `yaml:"hide-hostname,omitempty"`
-	HideURL      bool `yaml:"hide-url,omitempty"`
+type gatusDNSYAML struct {
+QueryName string `yaml:"query-name"`
+QueryType string `yaml:"query-type"`
 }
 
-type gatusConfig struct {
-	Endpoints []gatusEndpointConfig `yaml:"endpoints"`
+type gatusSSHYAML struct {
+Username string `yaml:"username"`
+Password string `yaml:"password"`
 }
 
+type gatusClientYAML struct {
+Insecure       bool                    `yaml:"insecure,omitempty"`
+IgnoreRedirect bool                    `yaml:"ignore-redirect,omitempty"`
+Timeout        string                  `yaml:"timeout,omitempty"`
+DNSResolver    string                  `yaml:"dns-resolver,omitempty"`
+ProxyURL       string                  `yaml:"proxy-url,omitempty"`
+OAuth2         *gatusClientOAuth2YAML  `yaml:"oauth2,omitempty"`
+TLS            *gatusClientTLSYAML     `yaml:"tls,omitempty"`
+Network        string                  `yaml:"network,omitempty"`
+}
+
+type gatusClientOAuth2YAML struct {
+TokenURL     string   `yaml:"token-url"`
+ClientID     string   `yaml:"client-id"`
+ClientSecret string   `yaml:"client-secret"`
+Scopes       []string `yaml:"scopes"`
+}
+
+type gatusClientTLSYAML struct {
+CertificateFile string `yaml:"certificate-file,omitempty"`
+PrivateKeyFile  string `yaml:"private-key-file,omitempty"`
+Renegotiation   string `yaml:"renegotiation,omitempty"`
+}
+
+type gatusUIYAML struct {
+HideConditions              bool `yaml:"hide-conditions,omitempty"`
+HideHostname                bool `yaml:"hide-hostname,omitempty"`
+HidePort                    bool `yaml:"hide-port,omitempty"`
+HideURL                     bool `yaml:"hide-url,omitempty"`
+HideErrors                  bool `yaml:"hide-errors,omitempty"`
+DontResolveFailedConditions bool `yaml:"dont-resolve-failed-conditions,omitempty"`
+ResolveSuccessfulConditions bool `yaml:"resolve-successful-conditions,omitempty"`
+}
+
+type gatusMaintenanceWinYAML struct {
+Day      string   `yaml:"day,omitempty"`
+Every    []string `yaml:"every,omitempty"`
+Start    string   `yaml:"start"`
+Duration string   `yaml:"duration"`
+Timezone string   `yaml:"timezone,omitempty"`
+}
+
+// Reconcile aggregates all GatusEndpoints and writes endpoints.yaml to the target ConfigMap.
 func (r *GatusEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-	logger.Info("Reconciling GatusEndpoint", "name", req.Name, "namespace", req.Namespace)
+logger := log.FromContext(ctx)
+logger.Info("Reconciling GatusEndpoint", "name", req.Name, "namespace", req.Namespace)
 
-	endpointList := &monitoringv1alpha1.GatusEndpointList{}
-	if err := r.List(ctx, endpointList); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to list GatusEndpoints: %w", err)
-	}
+// List all GatusEndpoints across all namespaces.
+endpointList := &monitoringv1alpha1.GatusEndpointList{}
+if err := r.List(ctx, endpointList); err != nil {
+return ctrl.Result{}, fmt.Errorf("failed to list GatusEndpoints: %w", err)
+}
 
-	var endpoints []gatusEndpointConfig
-	for _, ep := range endpointList.Items {
-		var alertConfigs []gatusAlertConfig
-		for _, alertRef := range ep.Spec.Alerts {
-			ns := alertRef.Namespace
-			if ns == "" {
-				ns = ep.Namespace
-			}
-			alert := &monitoringv1alpha1.GatusAlert{}
-			if err := r.Get(ctx, types.NamespacedName{Name: alertRef.Name, Namespace: ns}, alert); err != nil {
-				logger.Error(err, "Failed to get GatusAlert", "name", alertRef.Name, "namespace", ns)
-				continue
-			}
-			alertConfigs = append(alertConfigs, gatusAlertConfig{
-				Type:             alert.Spec.Type,
-				FailureThreshold: alert.Spec.FailureThreshold,
-				SendOnResolved:   alert.Spec.SendOnResolved,
-			})
-		}
+var endpoints []gatusEndpointYAML
+for _, ep := range endpointList.Items {
+alertYAMLs, err := r.resolveAlerts(ctx, ep.Spec.Alerts, ep.Namespace)
+if err != nil {
+logger.Error(err, "Failed to resolve alerts for endpoint", "name", ep.Name)
+}
 
-		epConfig := gatusEndpointConfig{
-			Name:       ep.Spec.Name,
-			Group:      ep.Spec.Group,
-			URL:        ep.Spec.URL,
-			Conditions: ep.Spec.Conditions,
-			Alerts:     alertConfigs,
-		}
+epYAML := gatusEndpointYAML{
+Name:        ep.Spec.Name,
+Enabled:     ep.Spec.Enabled,
+Group:       ep.Spec.Group,
+URL:         ep.Spec.URL,
+Method:      ep.Spec.Method,
+Interval:    ep.Spec.Interval,
+Body:        ep.Spec.Body,
+Headers:     ep.Spec.Headers,
+GraphQL:     ep.Spec.GraphQL,
+Conditions:  ep.Spec.Conditions,
+Alerts:      alertYAMLs,
+ExtraLabels: ep.Spec.ExtraLabels,
+}
 
-		if ep.Spec.DNS != nil {
-			epConfig.DNS = &gatusDNSConfig{
-				QueryName: ep.Spec.DNS.QueryName,
-				QueryType: ep.Spec.DNS.QueryType,
-			}
-		}
+if ep.Spec.DNS != nil {
+epYAML.DNS = &gatusDNSYAML{
+QueryName: ep.Spec.DNS.QueryName,
+QueryType: ep.Spec.DNS.QueryType,
+}
+}
 
-		if ep.Spec.UI != nil {
-			epConfig.UI = &gatusUIConfig{
-				HideHostname: ep.Spec.UI.HideHostname,
-				HideURL:      ep.Spec.UI.HideURL,
-			}
-		}
+if ep.Spec.SSH != nil {
+epYAML.SSH = &gatusSSHYAML{
+Username: ep.Spec.SSH.Username,
+Password: ep.Spec.SSH.Password,
+}
+}
 
-		endpoints = append(endpoints, epConfig)
-	}
+if ep.Spec.Client != nil {
+epYAML.Client = buildClientYAML(ep.Spec.Client)
+}
 
-	cfg := gatusConfig{Endpoints: endpoints}
-	data, err := yaml.Marshal(cfg)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to marshal Gatus config: %w", err)
-	}
+if ep.Spec.UI != nil {
+epYAML.UI = &gatusUIYAML{
+HideConditions:              ep.Spec.UI.HideConditions,
+HideHostname:                ep.Spec.UI.HideHostname,
+HidePort:                    ep.Spec.UI.HidePort,
+HideURL:                     ep.Spec.UI.HideURL,
+HideErrors:                  ep.Spec.UI.HideErrors,
+DontResolveFailedConditions: ep.Spec.UI.DontResolveFailedConditions,
+ResolveSuccessfulConditions: ep.Spec.UI.ResolveSuccessfulConditions,
+}
+}
 
-	cm := &corev1.ConfigMap{}
-	err = r.Get(ctx, types.NamespacedName{Name: configMapName, Namespace: r.TargetNamespace}, cm)
-	if errors.IsNotFound(err) {
-		cm = &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      configMapName,
-				Namespace: r.TargetNamespace,
-			},
-			Data: map[string]string{
-				configMapKey: string(data),
-			},
-		}
-		if err := r.Create(ctx, cm); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create ConfigMap: %w", err)
-		}
-		logger.Info("Created ConfigMap", "name", configMapName, "namespace", r.TargetNamespace)
-	} else if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get ConfigMap: %w", err)
-	} else {
-		if cm.Data == nil {
-			cm.Data = make(map[string]string)
-		}
-		cm.Data[configMapKey] = string(data)
-		if err := r.Update(ctx, cm); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update ConfigMap: %w", err)
-		}
-		logger.Info("Updated ConfigMap", "name", configMapName, "namespace", r.TargetNamespace)
-	}
+for _, mw := range ep.Spec.MaintenanceWindows {
+epYAML.MaintenanceWindows = append(epYAML.MaintenanceWindows, gatusMaintenanceWinYAML{
+Day:      mw.Day,
+Every:    mw.Every,
+Start:    mw.Start,
+Duration: mw.Duration,
+Timezone: mw.Timezone,
+})
+}
 
-	return ctrl.Result{}, nil
+endpoints = append(endpoints, epYAML)
+}
+
+cfg := gatusConfigFile{Endpoints: endpoints}
+data, err := yaml.Marshal(cfg)
+if err != nil {
+return ctrl.Result{}, fmt.Errorf("failed to marshal Gatus endpoints config: %w", err)
+}
+
+return r.upsertConfigMapKey(ctx, endpointsKey, string(data))
+}
+
+// resolveAlerts looks up each GatusAlertRef and merges its overrides with the referenced GatusAlert.
+func (r *GatusEndpointReconciler) resolveAlerts(ctx context.Context, refs []monitoringv1alpha1.GatusAlertRef, defaultNS string) ([]gatusAlertYAML, error) {
+logger := log.FromContext(ctx)
+var out []gatusAlertYAML
+for _, ref := range refs {
+ns := ref.Namespace
+if ns == "" {
+ns = defaultNS
+}
+alert := &monitoringv1alpha1.GatusAlert{}
+if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: ns}, alert); err != nil {
+logger.Error(err, "Failed to get GatusAlert", "name", ref.Name, "namespace", ns)
+continue
+}
+
+y := gatusAlertYAML{
+Type:                    alert.Spec.Type,
+Enabled:                 alert.Spec.Enabled,
+Description:             alert.Spec.Description,
+FailureThreshold:        alert.Spec.FailureThreshold,
+SuccessThreshold:        alert.Spec.SuccessThreshold,
+SendOnResolved:          alert.Spec.SendOnResolved,
+MinimumReminderInterval: alert.Spec.MinimumReminderInterval,
+}
+
+// Apply per-endpoint overrides from the GatusAlertRef.
+if ref.Description != "" {
+y.Description = ref.Description
+}
+if ref.Enabled != nil {
+y.Enabled = *ref.Enabled
+}
+if ref.FailureThreshold != 0 {
+y.FailureThreshold = ref.FailureThreshold
+}
+if ref.SuccessThreshold != 0 {
+y.SuccessThreshold = ref.SuccessThreshold
+}
+if ref.SendOnResolved != nil {
+y.SendOnResolved = *ref.SendOnResolved
+}
+if ref.MinimumReminderInterval != "" {
+y.MinimumReminderInterval = ref.MinimumReminderInterval
+}
+
+out = append(out, y)
+}
+return out, nil
+}
+
+func buildClientYAML(c *monitoringv1alpha1.GatusClientConfig) *gatusClientYAML {
+y := &gatusClientYAML{
+Insecure:       c.Insecure,
+IgnoreRedirect: c.IgnoreRedirect,
+Timeout:        c.Timeout,
+DNSResolver:    c.DNSResolver,
+ProxyURL:       c.ProxyURL,
+Network:        c.Network,
+}
+if c.OAuth2 != nil {
+y.OAuth2 = &gatusClientOAuth2YAML{
+TokenURL:     c.OAuth2.TokenURL,
+ClientID:     c.OAuth2.ClientID,
+ClientSecret: c.OAuth2.ClientSecret,
+Scopes:       c.OAuth2.Scopes,
+}
+}
+if c.TLS != nil {
+y.TLS = &gatusClientTLSYAML{
+CertificateFile: c.TLS.CertificateFile,
+PrivateKeyFile:  c.TLS.PrivateKeyFile,
+Renegotiation:   c.TLS.Renegotiation,
+}
+}
+return y
+}
+
+// upsertConfigMapKey creates or updates a single key in the target ConfigMap.
+func (r *GatusEndpointReconciler) upsertConfigMapKey(ctx context.Context, key, value string) (ctrl.Result, error) {
+logger := log.FromContext(ctx)
+cm := &corev1.ConfigMap{}
+err := r.Get(ctx, types.NamespacedName{Name: configMapName, Namespace: r.TargetNamespace}, cm)
+if errors.IsNotFound(err) {
+cm = &corev1.ConfigMap{
+ObjectMeta: metav1.ObjectMeta{
+Name:      configMapName,
+Namespace: r.TargetNamespace,
+},
+Data: map[string]string{key: value},
+}
+if err := r.Create(ctx, cm); err != nil {
+return ctrl.Result{}, fmt.Errorf("failed to create ConfigMap: %w", err)
+}
+logger.Info("Created ConfigMap", "name", configMapName, "namespace", r.TargetNamespace)
+return ctrl.Result{}, nil
+}
+if err != nil {
+return ctrl.Result{}, fmt.Errorf("failed to get ConfigMap: %w", err)
+}
+
+if cm.Data == nil {
+cm.Data = make(map[string]string)
+}
+cm.Data[key] = value
+if err := r.Update(ctx, cm); err != nil {
+return ctrl.Result{}, fmt.Errorf("failed to update ConfigMap: %w", err)
+}
+logger.Info("Updated ConfigMap", "name", configMapName, "namespace", r.TargetNamespace, "key", key)
+return ctrl.Result{}, nil
 }
 
 func (r *GatusEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&monitoringv1alpha1.GatusEndpoint{}).
-		Complete(r)
+return ctrl.NewControllerManagedBy(mgr).
+For(&monitoringv1alpha1.GatusEndpoint{}).
+Complete(r)
 }
