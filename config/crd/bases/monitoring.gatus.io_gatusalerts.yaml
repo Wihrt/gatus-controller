@@ -1,0 +1,56 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gatusalerts.monitoring.gatus.io
+spec:
+  group: monitoring.gatus.io
+  names:
+    kind: GatusAlert
+    listKind: GatusAlertList
+    plural: gatusalerts
+    singular: gatusalert
+    shortNames:
+      - ga
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: ["type", "failureThreshold", "sendOnResolved"]
+              properties:
+                type:
+                  type: string
+                webhookUrl:
+                  type: string
+                failureThreshold:
+                  type: integer
+                  default: 5
+                sendOnResolved:
+                  type: boolean
+                  default: true
+            status:
+              type: object
+              properties:
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+      subresources:
+        status: {}

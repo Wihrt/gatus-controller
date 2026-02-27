@@ -1,0 +1,21 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/wihrt/gatus-ingress-controller
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+serviceAccount:
+  create: true
+  name: ""
+
+ingressClass: traefik
+targetNamespace: gatus
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
