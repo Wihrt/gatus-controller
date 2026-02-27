@@ -5,8 +5,9 @@ import (
 )
 
 type GatusAlertSpec struct {
-	// Type is the alert provider type (e.g., "discord", "slack", "pagerduty").
+	// Type is the alert provider type.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=awsses;clickup;custom;datadog;discord;email;gitea;github;gitlab;googlechat;gotify;homeassistant;ifttt;ilert;incident-io;line;matrix;mattermost;messagebird;n8n;newrelic;ntfy;opsgenie;pagerduty;plivo;pushover;rocketchat;sendgrid;signal;signl4;slack;splunk;squadcast;teams;teams-workflows;telegram;twilio;vonage;webex;zapier;zulip
 	Type string `json:"type"`
 
 	// Enabled indicates whether this alert is enabled globally.

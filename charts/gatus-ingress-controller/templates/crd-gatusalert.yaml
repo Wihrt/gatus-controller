@@ -35,7 +35,49 @@ spec:
               properties:
                 type:
                   type: string
-                  description: Alert provider type (e.g. "discord", "slack", "pagerduty").
+                  description: Alert provider type. Must be one of the supported Gatus providers.
+                  enum:
+                    - awsses
+                    - clickup
+                    - custom
+                    - datadog
+                    - discord
+                    - email
+                    - gitea
+                    - github
+                    - gitlab
+                    - googlechat
+                    - gotify
+                    - homeassistant
+                    - ifttt
+                    - ilert
+                    - incident-io
+                    - line
+                    - matrix
+                    - mattermost
+                    - messagebird
+                    - n8n
+                    - newrelic
+                    - ntfy
+                    - opsgenie
+                    - pagerduty
+                    - plivo
+                    - pushover
+                    - rocketchat
+                    - sendgrid
+                    - signal
+                    - signl4
+                    - slack
+                    - splunk
+                    - squadcast
+                    - teams
+                    - teams-workflows
+                    - telegram
+                    - twilio
+                    - vonage
+                    - webex
+                    - zapier
+                    - zulip
                 enabled:
                   type: boolean
                   default: true

@@ -24,6 +24,10 @@ spec:
               value: {{ .Values.ingressClass | quote }}
             - name: TARGET_NAMESPACE
               value: {{ .Values.targetNamespace | quote }}
+            - name: GATEWAY_API_ENABLED
+              value: {{ .Values.gatewayApi.enabled | quote }}
+            - name: GATEWAY_NAMES
+              value: {{ .Values.gatewayApi.gatewayNames | quote }}
           ports:
             - name: metrics
               containerPort: 8080
