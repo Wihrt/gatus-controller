@@ -9,18 +9,35 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   packages: write
+  id-token: write
 
 env:
   REGISTRY: ghcr.io
   CHART_NAME: gatus-ingress-controller
 
 jobs:
+  # ── Create and push the git tag ───────────────────────────────────────────────
+  tag:
+    name: Create git tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create and push git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ inputs.tag }}
+          git push origin ${{ inputs.tag }}
+
   # ── Docker: retag SHA image with the version tag ─────────────────────────────
   docker:
     name: Retag Docker image
     runs-on: ubuntu-latest
+    needs: tag
     steps:
       - name: Set image name (lowercased)
         run: echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
@@ -42,10 +59,11 @@ jobs:
           docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.short }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.tag }}
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.tag }}
 
-  # ── Helm: bump chart version/appVersion and publish ─────────────────────────
+  # ── Helm: bump chart version/appVersion, publish, and upload artifact ────────
   helm:
     name: Bump and publish Helm chart
     runs-on: ubuntu-latest
+    needs: tag
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -73,3 +91,69 @@ jobs:
         run: |
           helm package charts/${{ env.CHART_NAME }}
           helm push ${{ env.CHART_NAME }}-${{ steps.version.outputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ env.OWNER }}/charts
+
+      - name: Upload Helm chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: ${{ env.CHART_NAME }}-${{ steps.version.outputs.version }}.tgz
+          retention-days: 1
+
+  # ── GitHub Release: create release and attach packages ───────────────────────
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [docker, helm]
+    steps:
+      - name: Set image name (lowercased)
+        run: |
+          echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=$(echo '${{ inputs.tag }}' | sed 's/^v//')" >> $GITHUB_OUTPUT
+
+      - name: Download Helm chart artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-chart
+
+      - name: Write release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Generate changelog from merged PRs since the previous release.
+          gh api \
+            --method POST \
+            repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name=${{ inputs.tag }} \
+            --jq '.body' > release-notes.md
+
+          # Append package install instructions.
+          {
+            echo ""
+            echo "## Docker image"
+            echo ""
+            echo '```'
+            echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.tag }}"
+            echo '```'
+            echo ""
+            echo "## Helm chart"
+            echo ""
+            echo '```'
+            echo "helm install gatus-ingress-controller \\"
+            echo "  oci://${{ env.REGISTRY }}/${{ env.OWNER }}/charts/${{ env.CHART_NAME }} \\"
+            echo "  --version ${{ steps.version.outputs.version }}"
+            echo '```'
+          } >> release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ inputs.tag }} \
+            --repo ${{ github.repository }} \
+            --title "${{ inputs.tag }}" \
+            --notes-file release-notes.md \
+            ${{ env.CHART_NAME }}-${{ steps.version.outputs.version }}.tgz
