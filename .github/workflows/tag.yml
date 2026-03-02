@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag name (e.g. v1.2.3)'
+        description: "Tag name (e.g. v1.2.3)"
         required: true
         type: string
 
@@ -53,6 +53,9 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
+      - name: Set owner name (lowercased)
+        run: echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Get version from tag
         id: version
         run: echo "version=$(echo '${{ inputs.tag }}' | sed 's/^v//')" >> $GITHUB_OUTPUT
@@ -69,4 +72,4 @@ jobs:
       - name: Package and push Helm chart
         run: |
           helm package charts/${{ env.CHART_NAME }}
-          helm push ${{ env.CHART_NAME }}-${{ steps.version.outputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
+          helm push ${{ env.CHART_NAME }}-${{ steps.version.outputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ env.OWNER }}/charts
