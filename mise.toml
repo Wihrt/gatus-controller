@@ -1,0 +1,10 @@
+[tools]
+act = "latest"
+go = "latest"
+hadolint = "latest"
+helm = "latest"
+pre-commit = "latest"
+task = "latest"
+
+[hooks]
+enter = "pre-commit install"
