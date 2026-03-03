@@ -134,6 +134,7 @@ func (r *GatusAlertingConfigReconciler) Reconcile(ctx context.Context, req ctrl.
 	})
 
 	providers := make(map[string]interface{})
+	var providerTypes []string
 	for i := range cfgList.Items {
 		item := &cfgList.Items[i]
 		t := item.Spec.Type
@@ -152,10 +153,32 @@ func (r *GatusAlertingConfigReconciler) Reconcile(ctx context.Context, req ctrl.
 			continue // skip invalid or unresolvable configs
 		}
 		providers[t] = itemMerged
+		providerTypes = append(providerTypes, t)
 	}
 
-	alerting := map[string]interface{}{"alerting": providers}
-	data, err := yaml.Marshal(alerting)
+	// Build an ordered map so the YAML output is deterministic.
+	sort.Strings(providerTypes)
+	orderedProviders := yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	for _, t := range providerTypes {
+		keyNode := &yaml.Node{Kind: yaml.ScalarNode, Value: t, Tag: "!!str"}
+		valBytes, _ := yaml.Marshal(providers[t])
+		var valNode yaml.Node
+		_ = yaml.Unmarshal(valBytes, &valNode)
+		orderedProviders.Content = append(orderedProviders.Content, keyNode)
+		if len(valNode.Content) > 0 {
+			orderedProviders.Content = append(orderedProviders.Content, valNode.Content[0])
+		} else {
+			orderedProviders.Content = append(orderedProviders.Content, &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"})
+		}
+	}
+
+	root := yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	root.Content = append(root.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Value: "alerting", Tag: "!!str"},
+		&orderedProviders,
+	)
+	doc := yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{&root}}
+	data, err := yaml.Marshal(&doc)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to marshal alerting config: %w", err)
 	}
