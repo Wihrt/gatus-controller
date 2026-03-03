@@ -262,7 +262,7 @@ func TestGatusAlertingConfigReconciler_ConfigSecretRef_MergesSecret(t *testing.T
 
 	// The webhook-url comes from the referenced secret, not from spec.config.
 	providerSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "slack-credentials", Namespace: "controller-ns"},
+		ObjectMeta: metav1.ObjectMeta{Name: "slack-credentials", Namespace: "default"},
 		Data: map[string][]byte{
 			"webhook-url": []byte("https://hooks.slack.com/services/from-secret"),
 		},
@@ -289,7 +289,6 @@ func TestGatusAlertingConfigReconciler_ConfigSecretRef_MergesSecret(t *testing.T
 		Client:              fakeClient,
 		TargetNamespace:     "gatus",
 		SecretName:          "gatus-secrets",
-		ControllerNamespace: "controller-ns",
 	}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "slack-cfg", Namespace: "default"}})
@@ -332,7 +331,7 @@ func TestGatusAlertingConfigReconciler_ConfigSecretRef_SecretWinsOverInline(t *t
 	outputSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
 
 	providerSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "slack-credentials", Namespace: "controller-ns"},
+		ObjectMeta: metav1.ObjectMeta{Name: "slack-credentials", Namespace: "default"},
 		Data: map[string][]byte{
 			"webhook-url": []byte("https://hooks.slack.com/services/from-secret"),
 		},
@@ -362,7 +361,6 @@ func TestGatusAlertingConfigReconciler_ConfigSecretRef_SecretWinsOverInline(t *t
 		Client:              fakeClient,
 		TargetNamespace:     "gatus",
 		SecretName:          "gatus-secrets",
-		ControllerNamespace: "controller-ns",
 	}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "slack-cfg", Namespace: "default"}})
@@ -412,7 +410,6 @@ func TestGatusAlertingConfigReconciler_ConfigSecretRef_MissingSecret_Requeues(t 
 		Client:              fakeClient,
 		TargetNamespace:     "gatus",
 		SecretName:          "gatus-secrets",
-		ControllerNamespace: "controller-ns",
 	}
 
 	result, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "slack-cfg", Namespace: "default"}})
@@ -445,7 +442,6 @@ func TestGatusAlertingConfigReconciler_DeletedConfigRemovedFromSecret(t *testing
 		Client:              fakeClient,
 		TargetNamespace:     "gatus",
 		SecretName:          "gatus-secrets",
-		ControllerNamespace: "controller-ns",
 	}
 
 	// Create
@@ -498,7 +494,6 @@ func TestGatusAlertingConfigReconciler_UpdateReflected(t *testing.T) {
 		Client:              fakeClient,
 		TargetNamespace:     "gatus",
 		SecretName:          "gatus-secrets",
-		ControllerNamespace: "controller-ns",
 	}
 
 	_, _ = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "slack-cfg", Namespace: "default"}})
@@ -551,7 +546,6 @@ func TestGatusAlertingConfigReconciler_DeterministicOutput(t *testing.T) {
 		Client:              fakeClient,
 		TargetNamespace:     "gatus",
 		SecretName:          "gatus-secrets",
-		ControllerNamespace: "controller-ns",
 	}
 
 	// Run multiple times and verify output is identical

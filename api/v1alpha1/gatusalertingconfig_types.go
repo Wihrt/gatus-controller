@@ -8,10 +8,10 @@ import (
 // ConfigSecretRef references a Kubernetes Secret whose data keys are merged
 // into the provider configuration. Sensitive fields (API keys, webhook URLs, etc.)
 // should be stored in the Secret rather than inlined in spec.config.
-// The Secret must reside in the same namespace as the controller.
+// The Secret must reside in the same namespace as the GatusAlertingConfig.
 // Secret values are treated as UTF-8 strings and merged on top of spec.config.
 type ConfigSecretRef struct {
-	// Name of the Secret in the controller's namespace.
+	// Name of the Secret in the same namespace as the GatusAlertingConfig.
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 }

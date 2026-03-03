@@ -71,9 +71,8 @@ var providerRequiredFields = map[string][]string{
 // sets a status condition, then aggregates all valid configs into alerting.yaml in the target Secret.
 type GatusAlertingConfigReconciler struct {
 	client.Client
-	TargetNamespace     string
-	SecretName          string
-	ControllerNamespace string
+	TargetNamespace string
+	SecretName      string
 }
 
 func (r *GatusAlertingConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -207,7 +206,7 @@ func (r *GatusAlertingConfigReconciler) resolveConfig(ctx context.Context, cfg *
 	}
 
 	secret := &corev1.Secret{}
-	if err := r.Get(ctx, types.NamespacedName{Name: cfg.Spec.ConfigSecretRef.Name, Namespace: r.ControllerNamespace}, secret); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: cfg.Spec.ConfigSecretRef.Name, Namespace: cfg.Namespace}, secret); err != nil {
 		if client.IgnoreNotFound(err) == nil {
 			requeue := ctrl.Result{RequeueAfter: 10 * time.Second}
 			return nil, &requeue, nil

@@ -60,17 +60,10 @@ func main() {
 		secretName = "gatus-secrets"
 	}
 
-	controllerNamespace := os.Getenv("POD_NAMESPACE")
-	if controllerNamespace == "" {
-		setupLog.Error(nil, "POD_NAMESPACE env var is required (set via Downward API)")
-		os.Exit(1)
-	}
-
 	if err = (&controller.GatusAlertingConfigReconciler{
-		Client:              mgr.GetClient(),
-		TargetNamespace:     targetNamespace,
-		SecretName:          secretName,
-		ControllerNamespace: controllerNamespace,
+		Client:          mgr.GetClient(),
+		TargetNamespace: targetNamespace,
+		SecretName:      secretName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GatusAlertingConfig")
 		os.Exit(1)
