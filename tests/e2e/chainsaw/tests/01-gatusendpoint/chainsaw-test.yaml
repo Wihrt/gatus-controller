@@ -4,6 +4,11 @@ metadata:
   name: gatusendpoint
 spec:
   concurrent: false
+  catch:
+    - podLogs:
+        namespace: gatus-system
+        selector: app.kubernetes.io/name=gatus-ingress-controller
+        tail: 100
   steps:
     # ── Step 1: Basic endpoint created in Secret ──────────────────────────────
     - name: "[GatusEndpoint] basic endpoint created in Secret"

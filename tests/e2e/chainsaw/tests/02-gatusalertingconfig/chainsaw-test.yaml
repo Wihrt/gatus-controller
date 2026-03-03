@@ -4,6 +4,11 @@ metadata:
   name: gatusalertingconfig
 spec:
   concurrent: false
+  catch:
+    - podLogs:
+        namespace: gatus-system
+        selector: app.kubernetes.io/name=gatus-ingress-controller
+        tail: 100
   steps:
     # ── Step 1: Valid Slack config aggregated into alerting.yaml Secret ───────
     - name: "[GatusAlertingConfig] valid Slack config aggregated into alerting.yaml"

@@ -4,6 +4,11 @@ metadata:
   name: gatusmaintenance
 spec:
   concurrent: false
+  catch:
+    - podLogs:
+        namespace: gatus-system
+        selector: app.kubernetes.io/name=gatus-ingress-controller
+        tail: 100
   steps:
     # ── Step 1: Maintenance window aggregated into ConfigMap ──────────────────
     - name: "[GatusMaintenance] aggregated into maintenance.yaml ConfigMap"
