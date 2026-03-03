@@ -129,6 +129,14 @@ func TestValidateCondition_LenWithNonBody(t *testing.T) {
 	}
 }
 
+func TestValidateCondition_LenWithNonBodyInCompoundExpression(t *testing.T) {
+	fld := field.NewPath("spec").Child("conditions").Index(0)
+	err := validateCondition("[STATUS] == 200 && len([STATUS]) < 5", fld)
+	if err == nil {
+		t.Error("expected len() with non-BODY placeholder in compound expression to be rejected")
+	}
+}
+
 func TestEndpointWebhook_RejectsMixedValidAndUnknownPlaceholder(t *testing.T) {
 	v := &GatusEndpointValidator{}
 	// [STATUS] is valid but [FOO] is not; the condition should be rejected.
