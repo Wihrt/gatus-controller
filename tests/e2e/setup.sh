@@ -21,8 +21,15 @@ echo "    Target namespace: ${TARGET_NAMESPACE}"
 
 # ── 1. Target namespace and pre-existing resources ────────────────────────────
 kubectl create namespace "${TARGET_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-kubectl create configmap gatus-config -n "${TARGET_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-kubectl create secret generic gatus-secrets -n "${TARGET_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create configmap gatus-config -n "${TARGET_NAMESPACE}" \
+  --from-literal=announcements.yaml="# placeholder" \
+  --from-literal=maintenance.yaml="# placeholder" \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret generic gatus-secrets -n "${TARGET_NAMESPACE}" \
+  --from-literal=endpoints.yaml="placeholder" \
+  --from-literal=external-endpoints.yaml="placeholder" \
+  --from-literal=alerting.yaml="placeholder" \
+  --dry-run=client -o yaml | kubectl apply -f -
 
 # ── 2. Deploy cert-manager ────────────────────────────────────────────────────
 echo "==> Installing cert-manager (${CERT_MANAGER_VERSION}) via Helm..."
