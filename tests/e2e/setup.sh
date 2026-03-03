@@ -64,4 +64,6 @@ kubectl wait --for=condition=Established --timeout="${TIMEOUT}" crd/gatusmainten
 echo "==> Waiting for controller to be ready..."
 kubectl rollout status deployment/"${RELEASE_NAME}" -n "${NAMESPACE}" --timeout="${TIMEOUT}"
 
+sleep 10
+
 echo "==> Cluster setup complete. Ready for E2E tests."
