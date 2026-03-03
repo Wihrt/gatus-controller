@@ -4,22 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Kubernetes controller that manages [Gatus](https://github.com/TwiN/gatus) monitoring endpoints via custom resources, aggregating configurations into a shared ConfigMap that Gatus reads.
+Kubernetes controller that manages [Gatus](https://github.com/TwiN/gatus) monitoring endpoints via custom resources, aggregating configurations into a shared ConfigMap (non-sensitive data) and Secret (sensitive data) that Gatus reads.
 
 ## Commands
 
 Tools managed via [mise](https://mise.jdx.dev/) (`mise.toml`), tasks via [Task](https://taskfile.dev/) (`Taskfile.yml`).
 
 ```bash
-mise install                   # Install all tools (go, helm, task, act, bats, chainsaw, hadolint, pre-commit)
+mise install                   # Install all tools (go, helm, task, act, chainsaw, hadolint, pre-commit)
 task build                     # go build ./...
 task test                      # go test ./... -v
 task fmt                       # go fmt ./...
 task vet                       # go vet ./...
 task docker-build              # Build container image
-task e2e TAG=ci-test           # Run all E2E tests: BATS + Chainsaw (requires k3s + KUBECONFIG)
-task e2e:bats TAG=ci-test      # Run BATS E2E tests only
-task e2e:chainsaw TAG=ci-test  # Run Chainsaw E2E tests only
+task e2e TAG=ci-test           # Run Chainsaw E2E tests (requires k3s + KUBECONFIG)
 task hooks:install             # Install pre-commit hooks
 task act:pr                    # Simulate PR workflow locally with act
 task act:main                  # Simulate main workflow locally
@@ -35,33 +33,36 @@ Pre-commit hooks run `go vet`, `go build`, `go test`, `hadolint`, and `helm lint
 
 ## Architecture
 
-**Data flow**: `GatusEndpoint` CR → aggregated into ConfigMap (`gatus-config/endpoints.yaml`) → Gatus reads config.
+**Data flow**: `GatusEndpoint` CR → aggregated into Secret (`gatus-secrets/endpoints.yaml`) → Gatus reads config.
 
 **Reconcilers** (registered in `cmd/main.go`):
-- `GatusEndpointReconciler` — aggregates all `GatusEndpoint` CRs into ConfigMap; injects default condition `[STATUS] == 200` when `spec.conditions` is empty
+- `GatusEndpointReconciler` — aggregates all `GatusEndpoint` CRs into Secret; injects default condition `[STATUS] == 200` when `spec.conditions` is empty
 - `GatusExternalEndpointReconciler` — handles externally-pushed status endpoints
-- `GatusAlertReconciler` — validates alert provider configs, aggregates into ConfigMap
-- `GatusAnnouncementReconciler` — aggregates status page announcements
-- `GatusMaintenanceReconciler` — aggregates global maintenance windows
+- `GatusAlertingConfigReconciler` — validates alerting config, merges `configSecretRef`, aggregates into Secret
+- `GatusAlertReconciler` — validates alert provider configs (via `alertingConfigRef`), aggregates into Secret
+- `GatusAnnouncementReconciler` — aggregates status page announcements into ConfigMap
+- `GatusMaintenanceReconciler` — aggregates global maintenance windows into ConfigMap
 
-**CRDs** (`api/v1alpha1/`): GatusEndpoint, GatusAlert, GatusExternalEndpoint, GatusAnnouncement, GatusMaintenance.
+**CRDs** (`api/v1alpha1/`): GatusEndpoint, GatusAlert, GatusAlertingConfig, GatusExternalEndpoint, GatusAnnouncement, GatusMaintenance.
 
-**ConfigMap keys** managed by the controller: `endpoints.yaml`, `external-endpoints.yaml`, `alerting.yaml`, `announcements.yaml`, `maintenance.yaml`. User-managed `config.yaml` is preserved.
+**ConfigMap keys** managed by the controller: `announcements.yaml`, `maintenance.yaml`. User-managed `config.yaml` is preserved.
+**Secret keys** managed by the controller: `endpoints.yaml`, `external-endpoints.yaml`, `alerting.yaml`.
 
 ## Key Conventions
 
 - **Error handling**: wrap with `fmt.Errorf("failed to X: %w", err)`
 - **Logging**: use `log.FromContext(ctx)`, never initialize loggers in reconcilers
 - **Tests**: use `fake.Client` (no envtest), shared `newTestScheme(t)` helper in `helpers_test.go`
-- **Default conditions**: when `GatusEndpoint.spec.conditions` is empty, the reconciler injects `[STATUS] == 200` in the generated YAML (CR is not modified)
-- **Deduplication**: when two `GatusEndpoint` CRs share the same `spec.name`, the one without `ownerReferences` (user-managed) wins
+- **Default conditions**: when `GatusEndpoint.spec.conditions` is empty, the reconciler injects `[STATUS] == 200` in the generated YAML output (the CR itself is not modified)
+- **Deduplication**: when two `GatusEndpoint` CRs share the same `spec.name`, the first alphabetically (by namespace/name) wins
 
 ## Runtime Env Vars
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `TARGET_NAMESPACE` | `gatus` | Namespace where ConfigMap is written |
+| `TARGET_NAMESPACE` | `gatus` | Namespace where ConfigMap and Secret are written |
 | `CONFIG_MAP_NAME` | `gatus-config` | Target ConfigMap name |
+| `SECRET_NAME` | `gatus-secrets` | Target Secret name (for sensitive data) |
 
 ## Docker
 

@@ -106,3 +106,59 @@ spec:
             name: test-custom-spec
         - script:
             content: kubectl get secret gatus-secrets -n gatus -o jsonpath='{.data.endpoints\.yaml}' | base64 -d
+
+    # ── Step 4: Update an endpoint and verify the new URL appears ─────────────
+    - name: "[GatusEndpoint] update URL is reflected in Secret"
+      try:
+        - apply:
+            resource:
+              apiVersion: monitoring.gatus.io/v1alpha1
+              kind: GatusEndpoint
+              metadata:
+                name: test-app
+              spec:
+                name: "test-app"
+                group: "e2e"
+                url: "https://updated-app.example.com"
+                conditions:
+                  - "[STATUS] == 200"
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: gatus-secrets
+                namespace: gatus
+              "(contains(base64_decode(lookup(data, 'endpoints.yaml')), 'https://updated-app.example.com'))": true
+      catch:
+        - describe:
+            apiVersion: monitoring.gatus.io/v1alpha1
+            kind: GatusEndpoint
+            name: test-app
+        - script:
+            content: kubectl get secret gatus-secrets -n gatus -o jsonpath='{.data.endpoints\.yaml}' | base64 -d
+
+    # ── Step 5: Delete an endpoint and verify it is removed from Secret ───────
+    - name: "[GatusEndpoint] deleted endpoint removed from Secret"
+      try:
+        - delete:
+            ref:
+              apiVersion: monitoring.gatus.io/v1alpha1
+              kind: GatusEndpoint
+              name: test-no-conditions
+        - script:
+            timeout: 30s
+            content: |
+              for i in $(seq 1 15); do
+                DATA=$(kubectl get secret gatus-secrets -n gatus -o jsonpath='{.data.endpoints\.yaml}' | base64 -d)
+                if echo "$DATA" | grep -q "no-conditions"; then
+                  sleep 2
+                else
+                  exit 0
+                fi
+              done
+              echo "FAIL: test-no-conditions still present in endpoints.yaml"
+              exit 1
+      catch:
+        - script:
+            content: kubectl get secret gatus-secrets -n gatus -o jsonpath='{.data.endpoints\.yaml}' | base64 -d

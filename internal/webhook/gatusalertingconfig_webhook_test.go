@@ -189,3 +189,22 @@ func TestWebhook_AllowsCreateOfDifferentType(t *testing.T) {
 		t.Errorf("expected creating a discord config when slack exists to be allowed, got: %v", err)
 	}
 }
+
+// TestWebhook_UniquenessFailsClosedOnListError verifies that validateUniqueness
+// returns an error (fail-closed) when the client List call fails.
+func TestWebhook_UniquenessFailsClosedOnListError(t *testing.T) {
+	// Use a scheme without GatusAlertingConfig registered so List() fails
+	brokenScheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(brokenScheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(brokenScheme).Build()
+	v := &GatusAlertingConfigValidator{Client: fakeClient}
+
+	cfg := &monitoringv1alpha1.GatusAlertingConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-cfg", Namespace: "default"},
+		Spec:       monitoringv1alpha1.GatusAlertingConfigSpec{Type: "slack"},
+	}
+	errs := v.validateUniqueness(context.Background(), cfg, "")
+	if len(errs) == 0 {
+		t.Error("expected validateUniqueness to fail closed when List() errors, got no errors")
+	}
+}

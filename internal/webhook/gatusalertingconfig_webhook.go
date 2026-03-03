@@ -175,8 +175,10 @@ func (v *GatusAlertingConfigValidator) validateUniqueness(ctx context.Context, c
 	}
 	list := &monitoringv1alpha1.GatusAlertingConfigList{}
 	if err := v.Client.List(ctx, list); err != nil {
-		// If we can't list, fail open (don't block the request).
-		return nil
+		return field.ErrorList{field.InternalError(
+			field.NewPath("spec").Child("type"),
+			fmt.Errorf("failed to list GatusAlertingConfigs for uniqueness check: %w", err),
+		)}
 	}
 	for _, existing := range list.Items {
 		if existing.Spec.Type != cfg.Spec.Type {

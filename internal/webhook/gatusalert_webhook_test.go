@@ -143,3 +143,14 @@ func TestAlertWebhook_RejectsMissingAlertingConfigRef(t *testing.T) {
 		t.Error("expected error when alertingConfigRef is empty")
 	}
 }
+
+// TestAlertWebhook_RejectsNotFoundRefWithNoOverrides verifies that a non-empty
+// alertingConfigRef pointing to a missing config is rejected even without overrides.
+func TestAlertWebhook_RejectsNotFoundRefWithNoOverrides(t *testing.T) {
+	v := makeAlertValidator(t) // no configs in client
+	alert := makeAlert("nonexistent-config", nil)
+	_, err := v.ValidateCreate(context.Background(), alert)
+	if err == nil {
+		t.Error("expected error when alertingConfigRef points to missing config with no overrides")
+	}
+}

@@ -3,29 +3,28 @@
 [![Build](https://github.com/Wihrt/gatus-ingress-controller/actions/workflows/main.yml/badge.svg)](https://github.com/Wihrt/gatus-ingress-controller/actions/workflows/main.yml)
 [![Coverage](https://codecov.io/gh/Wihrt/gatus-ingress-controller/graph/badge.svg)](https://codecov.io/gh/Wihrt/gatus-ingress-controller)
 
-A Kubernetes controller that manages [Gatus](https://github.com/TwiN/gatus) monitoring endpoints via custom resources, automatically aggregating them into a shared ConfigMap that Gatus reads for its configuration.
+A Kubernetes controller that manages [Gatus](https://github.com/TwiN/gatus) monitoring endpoints via custom resources, automatically aggregating them into a shared ConfigMap and Secret that Gatus reads for its configuration.
 
 ## How it works
 
 ```
-ConfigMap "gatus-config"
-  ├── config.yaml              (user-managed: DB, web, etc.)
-  ├── endpoints.yaml           (GatusEndpointReconciler)
-  ├── external-endpoints.yaml  (GatusExternalEndpointReconciler)
-  ├── alerting.yaml            (GatusAlertReconciler)
-  ├── announcements.yaml       (GatusAnnouncementReconciler)
-  └── maintenance.yaml         (GatusMaintenanceReconciler)
+ConfigMap "gatus-config"                Secret "gatus-secrets"
+  ├── config.yaml   (user-managed)        ├── endpoints.yaml           (GatusEndpointReconciler)
+  ├── announcements.yaml                  ├── external-endpoints.yaml  (GatusExternalEndpointReconciler)
+  │     (GatusAnnouncementReconciler)     └── alerting.yaml            (GatusAlertingConfigReconciler
+  └── maintenance.yaml                                                  + GatusAlertReconciler)
+        (GatusMaintenanceReconciler)
           │
-          └── mounted at /config in Gatus pod → Gatus merges all files
+          └── mounted in Gatus pod → Gatus merges all files
 ```
 
-Each reconciler watches its own CRD cluster-wide, builds the corresponding Gatus config section, and writes it as a dedicated key inside the shared ConfigMap. The ConfigMap must be pre-created — the controller never creates or deletes it.
+Each reconciler watches its own CRD cluster-wide, builds the corresponding Gatus config section, and writes it as a dedicated key inside the shared ConfigMap or Secret. Non-sensitive data (announcements, maintenance) goes into the ConfigMap; sensitive data (endpoints, alerting) goes into the Secret. Both must be pre-created — the controller never creates or deletes them.
 
 ## Installation
 
-### 1. Create the shared ConfigMap
+### 1. Create the shared ConfigMap and Secret
 
-The controller **appends** to an existing ConfigMap — it never creates one from scratch. You must pre-create the ConfigMap with your main Gatus configuration (storage, alerting providers, web settings, etc.):
+The controller **appends** to existing resources — it never creates them from scratch. You must pre-create the ConfigMap with your main Gatus configuration and the Secret for sensitive data:
 
 ```yaml
 apiVersion: v1
@@ -40,6 +39,13 @@ data:
     storage:
       type: sqlite
       path: /data/gatus.db
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gatus-secrets
+  namespace: gatus
+type: Opaque
 ```
 
 ### 2. Deploy Gatus
@@ -68,11 +74,15 @@ helm install gatus-ingress-controller oci://ghcr.io/wihrt/charts/gatus-ingress-c
 
 | Value | Default | Description |
 |---|---|---|
-| `targetNamespace` | `gatus` | Namespace where the ConfigMap is written |
-| `configMapName` | `gatus-config` | Name of the ConfigMap to append endpoints to (must pre-exist) |
+| `targetNamespace` | `gatus` | Namespace where the ConfigMap and Secret are written |
+| `configMapName` | `gatus-config` | Name of the ConfigMap to append non-sensitive data to (must pre-exist) |
+| `secretName` | `gatus-secrets` | Name of the Secret to append sensitive data to (must pre-exist) |
+| `webhook.enabled` | `true` | Enable validating webhooks for CRDs (requires cert-manager) |
 | `image.repository` | `ghcr.io/wihrt/gatus-ingress-controller` | Controller image |
 | `image.tag` | `latest` | Image tag |
 | `replicaCount` | `1` | Number of replicas |
+
+> **Prerequisites:** When `webhook.enabled` is `true`, [cert-manager](https://cert-manager.io/) must be installed in the cluster to provision TLS certificates for the webhook server.
 
 ## Usage
 
@@ -80,7 +90,35 @@ helm install gatus-ingress-controller oci://ghcr.io/wihrt/charts/gatus-ingress-c
 
 Define a `GatusEndpoint` CR for any service you want Gatus to monitor. If no conditions are specified, the controller defaults to `[STATUS] == 200`:
 
-A `GatusAlert` serves two purposes: it configures the alert provider in Gatus (webhook URL, etc.) **and** defines the default thresholds used when the alert is referenced from an endpoint. One CR per provider type — if two CRs share the same type, the first (alphabetically) is used and a warning is logged.
+A `GatusAlertingConfig` configures a single alert provider in Gatus. Each provider type (e.g. slack, discord) can only have one `GatusAlertingConfig` cluster-wide:
+
+```yaml
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusAlertingConfig
+metadata:
+  name: slack-config
+  namespace: default
+spec:
+  type: slack
+  config:
+    webhook-url: "https://hooks.slack.com/services/..."
+```
+
+For sensitive values, use `configSecretRef` to reference a Kubernetes Secret (e.g. managed by External Secrets Operator):
+
+```yaml
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusAlertingConfig
+metadata:
+  name: slack-config
+  namespace: default
+spec:
+  type: slack
+  configSecretRef:
+    name: slack-secret   # Secret data keys are merged on top of spec.config
+```
+
+A `GatusAlert` defines the default alert thresholds and references a `GatusAlertingConfig`:
 
 ```yaml
 apiVersion: monitoring.gatus.io/v1alpha1
@@ -89,10 +127,9 @@ metadata:
   name: slack-alert
   namespace: default
 spec:
-  type: slack
-  webhookUrl: "https://hooks.slack.com/services/..."
-  failureThreshold: 3      # alert after 3 consecutive failures
-  successThreshold: 2      # resolve after 2 consecutive successes
+  alertingConfigRef: slack-config  # references the GatusAlertingConfig above
+  failureThreshold: 3
+  successThreshold: 2
   sendOnResolved: true
   description: "Endpoint is down"
 ```
@@ -106,8 +143,6 @@ spec:
 ```
 
 Supported alert types: `slack`, `discord`, `teams`, `teams-workflows`, `pagerduty`, `opsgenie`, `telegram`, `email`, `ntfy`, and [many more](https://github.com/TwiN/gatus#alerting).
-
-> **Note:** Provider-specific configuration not covered by `GatusAlert` (e.g. email host/port, PagerDuty routing keys) should be added manually to `config.yaml`.
 
 ### Add a status page announcement (GatusAnnouncement)
 

@@ -460,6 +460,244 @@ func TestGatusEndpointReconciler_ProviderOverrideFromAlert(t *testing.T) {
 	}
 }
 
+// TestGatusEndpointReconciler_WithDNSConfig verifies that DNS config fields appear in endpoints.yaml.
+func TestGatusEndpointReconciler_WithDNSConfig(t *testing.T) {
+	ctx := context.Background()
+	s := newTestScheme(t)
+
+	ep := &monitoringv1alpha1.GatusEndpoint{
+		ObjectMeta: metav1.ObjectMeta{Name: "dns-ep", Namespace: "default"},
+		Spec: monitoringv1alpha1.GatusEndpointSpec{
+			Name:       "DNS EP",
+			URL:        "8.8.8.8",
+			Conditions: []string{"[DNS_RCODE] == NOERROR"},
+			DNS: &monitoringv1alpha1.GatusDNSConfig{
+				QueryName: "example.com",
+				QueryType: "A",
+			},
+		},
+	}
+
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "dns-ep", Namespace: "default"}})
+	if err != nil {
+		t.Fatalf("Reconcile returned error: %v", err)
+	}
+
+	updated := &corev1.Secret{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	y := string(updated.Data["endpoints.yaml"])
+
+	for _, check := range []string{"query-name: example.com", "query-type: A"} {
+		if !contains(y, check) {
+			t.Errorf("expected %q in endpoints.yaml, got:\n%s", check, y)
+		}
+	}
+}
+
+// TestGatusEndpointReconciler_WithSSHConfig verifies that SSH config fields appear in endpoints.yaml.
+func TestGatusEndpointReconciler_WithSSHConfig(t *testing.T) {
+	ctx := context.Background()
+	s := newTestScheme(t)
+
+	ep := &monitoringv1alpha1.GatusEndpoint{
+		ObjectMeta: metav1.ObjectMeta{Name: "ssh-ep", Namespace: "default"},
+		Spec: monitoringv1alpha1.GatusEndpointSpec{
+			Name:       "SSH EP",
+			URL:        "ssh://server.example.com:22",
+			Conditions: []string{"[CONNECTED] == true"},
+			SSH: &monitoringv1alpha1.GatusSSHConfig{
+				Username: "admin",
+				Password: "s3cret",
+			},
+		},
+	}
+
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ssh-ep", Namespace: "default"}})
+	if err != nil {
+		t.Fatalf("Reconcile returned error: %v", err)
+	}
+
+	updated := &corev1.Secret{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	y := string(updated.Data["endpoints.yaml"])
+
+	for _, check := range []string{"username: admin", "password: s3cret"} {
+		if !contains(y, check) {
+			t.Errorf("expected %q in endpoints.yaml, got:\n%s", check, y)
+		}
+	}
+}
+
+// TestGatusEndpointReconciler_WithUIConfig verifies that UI config fields appear in endpoints.yaml.
+func TestGatusEndpointReconciler_WithUIConfig(t *testing.T) {
+	ctx := context.Background()
+	s := newTestScheme(t)
+
+	ep := &monitoringv1alpha1.GatusEndpoint{
+		ObjectMeta: metav1.ObjectMeta{Name: "ui-ep", Namespace: "default"},
+		Spec: monitoringv1alpha1.GatusEndpointSpec{
+			Name: "UI EP",
+			URL:  "https://example.com",
+			UI: &monitoringv1alpha1.GatusUIConfig{
+				HideConditions: true,
+				HideHostname:   true,
+				HideURL:        true,
+			},
+		},
+	}
+
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ui-ep", Namespace: "default"}})
+	if err != nil {
+		t.Fatalf("Reconcile returned error: %v", err)
+	}
+
+	updated := &corev1.Secret{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	y := string(updated.Data["endpoints.yaml"])
+
+	for _, check := range []string{"hide-conditions: true", "hide-hostname: true", "hide-url: true"} {
+		if !contains(y, check) {
+			t.Errorf("expected %q in endpoints.yaml, got:\n%s", check, y)
+		}
+	}
+}
+
+// TestGatusEndpointReconciler_WithMaintenanceWindows verifies that maintenance windows appear in endpoints.yaml.
+func TestGatusEndpointReconciler_WithMaintenanceWindows(t *testing.T) {
+	ctx := context.Background()
+	s := newTestScheme(t)
+
+	ep := &monitoringv1alpha1.GatusEndpoint{
+		ObjectMeta: metav1.ObjectMeta{Name: "mw-ep", Namespace: "default"},
+		Spec: monitoringv1alpha1.GatusEndpointSpec{
+			Name: "MW EP",
+			URL:  "https://example.com",
+			MaintenanceWindows: []monitoringv1alpha1.GatusMaintenanceWindow{
+				{
+					Every:    []string{"Monday", "Friday"},
+					Start:    "23:00",
+					Duration: "1h",
+					Timezone: "UTC",
+				},
+			},
+		},
+	}
+
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "mw-ep", Namespace: "default"}})
+	if err != nil {
+		t.Fatalf("Reconcile returned error: %v", err)
+	}
+
+	updated := &corev1.Secret{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	y := string(updated.Data["endpoints.yaml"])
+
+	for _, check := range []string{"maintenance-windows:", "start: \"23:00\"", "duration: 1h", "timezone: UTC", "- Monday", "- Friday"} {
+		if !contains(y, check) {
+			t.Errorf("expected %q in endpoints.yaml, got:\n%s", check, y)
+		}
+	}
+}
+
+// TestGatusEndpointReconciler_MissingAlertRef verifies that a missing GatusAlert ref is gracefully skipped.
+func TestGatusEndpointReconciler_MissingAlertRef(t *testing.T) {
+	ctx := context.Background()
+	s := newTestScheme(t)
+
+	ep := &monitoringv1alpha1.GatusEndpoint{
+		ObjectMeta: metav1.ObjectMeta{Name: "missing-alert-ep", Namespace: "default"},
+		Spec: monitoringv1alpha1.GatusEndpointSpec{
+			Name: "Missing Alert EP",
+			URL:  "https://example.com",
+			Alerts: []monitoringv1alpha1.GatusAlertRef{
+				{Name: "nonexistent-alert"},
+			},
+		},
+	}
+
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "missing-alert-ep", Namespace: "default"}})
+	if err != nil {
+		t.Fatalf("Reconcile should not error on missing alert ref, got: %v", err)
+	}
+
+	updated := &corev1.Secret{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	y := string(updated.Data["endpoints.yaml"])
+
+	// Endpoint should be written but without any alerts
+	if !contains(y, "Missing Alert EP") {
+		t.Errorf("expected endpoint to still be written, got:\n%s", y)
+	}
+	if contains(y, "alerts:") {
+		t.Errorf("expected no alerts block when ref is missing, got:\n%s", y)
+	}
+}
+
+// TestGatusEndpointReconciler_MissingAlertingConfigRef verifies that a missing GatusAlertingConfig ref is gracefully skipped.
+func TestGatusEndpointReconciler_MissingAlertingConfigRef(t *testing.T) {
+	ctx := context.Background()
+	s := newTestScheme(t)
+
+	alert := &monitoringv1alpha1.GatusAlert{
+		ObjectMeta: metav1.ObjectMeta{Name: "orphan-alert", Namespace: "default"},
+		Spec: monitoringv1alpha1.GatusAlertSpec{
+			AlertingConfigRef: "nonexistent-config",
+			FailureThreshold:  3,
+		},
+	}
+
+	ep := &monitoringv1alpha1.GatusEndpoint{
+		ObjectMeta: metav1.ObjectMeta{Name: "orphan-ep", Namespace: "default"},
+		Spec: monitoringv1alpha1.GatusEndpointSpec{
+			Name: "Orphan EP",
+			URL:  "https://example.com",
+			Alerts: []monitoringv1alpha1.GatusAlertRef{
+				{Name: "orphan-alert"},
+			},
+		},
+	}
+
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, alert, ep).Build()
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "orphan-ep", Namespace: "default"}})
+	if err != nil {
+		t.Fatalf("Reconcile should not error on missing alerting config ref, got: %v", err)
+	}
+
+	updated := &corev1.Secret{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	y := string(updated.Data["endpoints.yaml"])
+
+	if !contains(y, "Orphan EP") {
+		t.Errorf("expected endpoint to still be written, got:\n%s", y)
+	}
+	if contains(y, "alerts:") {
+		t.Errorf("expected no alerts block when alerting config ref is missing, got:\n%s", y)
+	}
+}
+
 // TestGatusEndpointReconciler_ConflictDeduplication verifies that when two GatusEndpoints
 // share the same spec.name, only the alphabetically first one is included in endpoints.yaml.
 func TestGatusEndpointReconciler_ConflictDeduplication(t *testing.T) {

@@ -85,3 +85,40 @@ spec:
                 type: slack
                 config:
                   webhook-url: "https://hooks.slack.com/services/other/other/other"
+
+    # ── Step 5: configSecretRef merged into alerting config ────────────────────
+    - name: "[GatusAlertingConfig] configSecretRef merged into alerting.yaml"
+      try:
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: discord-secret
+              stringData:
+                webhook-url: "https://discord.com/api/webhooks/secret-value"
+        - apply:
+            resource:
+              apiVersion: monitoring.gatus.io/v1alpha1
+              kind: GatusAlertingConfig
+              metadata:
+                name: discord-config
+              spec:
+                type: discord
+                configSecretRef:
+                  name: discord-secret
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: gatus-secrets
+                namespace: gatus
+              "(contains(base64_decode(lookup(data, 'alerting.yaml')), 'discord.com/api/webhooks/secret-value'))": true
+      catch:
+        - describe:
+            apiVersion: monitoring.gatus.io/v1alpha1
+            kind: GatusAlertingConfig
+            name: discord-config
+        - script:
+            content: kubectl get secret gatus-secrets -n gatus -o jsonpath='{.data.alerting\.yaml}' | base64 -d
