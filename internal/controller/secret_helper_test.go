@@ -48,7 +48,9 @@ func TestUpsertSecretKey_UpdatesExistingKey(t *testing.T) {
 	}
 
 	updated := &corev1.Secret{}
-	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-secret", Namespace: "test-ns"}, updated)
+	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-secret", Namespace: "test-ns"}, updated); err != nil {
+		t.Fatalf("failed to get secret: %v", err)
+	}
 	if string(updated.Data["my-key"]) != "new-value" {
 		t.Errorf("expected 'new-value', got %q", string(updated.Data["my-key"]))
 	}
@@ -68,7 +70,9 @@ func TestUpsertSecretKey_PreservesOtherKeys(t *testing.T) {
 	}
 
 	updated := &corev1.Secret{}
-	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-secret", Namespace: "test-ns"}, updated)
+	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-secret", Namespace: "test-ns"}, updated); err != nil {
+		t.Fatalf("failed to get secret: %v", err)
+	}
 	if string(updated.Data["existing-key"]) != "existing-value" {
 		t.Errorf("existing key was modified: got %q", string(updated.Data["existing-key"]))
 	}
