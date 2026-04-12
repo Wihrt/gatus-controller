@@ -80,7 +80,7 @@ spec:
         - script:
             content: kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.external-endpoints\.yaml}'
 
-    # ── Step 3: Update token is reflected in Secret ──────────────────────────
+    # ── Step 3: Update token is reflected in ConfigMap ──────────────────────────
     - name: "[GatusExternalEndpoint] update token reflected in external-endpoints.yaml"
       try:
         - apply:
@@ -112,7 +112,7 @@ spec:
         - script:
             content: kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.external-endpoints\.yaml}'
 
-    # ── Step 4: Delete external endpoint removes it from Secret ──────────────
+    # ── Step 4: Delete external endpoint removes it from ConfigMap ──────────────
     - name: "[GatusExternalEndpoint] deleted endpoint removed from external-endpoints.yaml"
       try:
         - delete:

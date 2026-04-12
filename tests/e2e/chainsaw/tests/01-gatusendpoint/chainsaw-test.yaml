@@ -184,7 +184,7 @@ spec:
         - script:
             content: kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.endpoints\.yaml}'
 
-    # ── Step 6: Delete an endpoint and verify it is removed from Secret ───────
+    # ── Step 6: Delete an endpoint and verify it is removed from ConfigMap ───────
     - name: "[GatusEndpoint] deleted endpoint removed from ConfigMap"
       try:
         - delete:
