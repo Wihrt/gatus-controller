@@ -3,19 +3,19 @@
 [![Build](https://github.com/Wihrt/gatus-controller/actions/workflows/main.yml/badge.svg)](https://github.com/Wihrt/gatus-controller/actions/workflows/main.yml)
 [![Coverage](https://codecov.io/gh/Wihrt/gatus-controller/graph/badge.svg)](https://codecov.io/gh/Wihrt/gatus-controller)
 
-A Kubernetes controller that manages [Gatus](https://github.com/TwiN/gatus) monitoring endpoints via custom resources, automatically aggregating them into a shared Secret that Gatus reads for its configuration.
+A Kubernetes controller that manages [Gatus](https://github.com/TwiN/gatus) monitoring endpoints via custom resources, automatically aggregating them into a shared ConfigMap that Gatus reads for its configuration.
 
 ## How it works
 
 ```
-Secret "gatus-secrets"
+ConfigMap "gatus-config"
   ├── endpoints.yaml           (GatusEndpointReconciler)
   └── external-endpoints.yaml  (GatusExternalEndpointReconciler)
         │
         └── mounted in Gatus pod → Gatus merges all files
 ```
 
-Each reconciler watches its own CRD cluster-wide, builds the corresponding Gatus config section, and writes it as a dedicated key inside the shared Secret. The Secret must be pre-created — the controller never creates or deletes it.
+Each reconciler watches its own CRD cluster-wide, builds the corresponding Gatus config section, and writes it as a dedicated key inside the shared ConfigMap. The ConfigMap must be pre-created — the controller never creates or deletes it.
 
 ## Custom Resource Definitions
 
@@ -26,22 +26,21 @@ Each reconciler watches its own CRD cluster-wide, builds the corresponding Gatus
 
 ## Installation
 
-### 1. Create the shared Secret
+### 1. Create the shared ConfigMap
 
-The controller **appends** to an existing Secret — it never creates it from scratch:
+The controller **appends** to an existing ConfigMap — it never creates it from scratch:
 
 ```yaml
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
-  name: gatus-secrets
+  name: gatus-config
   namespace: gatus
-type: Opaque
 ```
 
 ### 2. Deploy Gatus
 
-Point Gatus at the shared Secret and enable directory-based config reading with `GATUS_CONFIG_PATH=/config`:
+Point Gatus at the shared ConfigMap and enable directory-based config reading with `GATUS_CONFIG_PATH=/config`:
 
 ```bash
 helm install gatus oci://ghcr.io/twin/helm-charts/gatus \
@@ -64,8 +63,8 @@ helm install gatus-controller oci://ghcr.io/wihrt/charts/gatus-controller \
 
 | Value | Default | Description |
 |---|---|---|
-| `targetNamespace` | `gatus` | Namespace where the Secret is written |
-| `secretName` | `gatus-secrets` | Name of the Secret to write endpoint data to (must pre-exist) |
+| `targetNamespace` | `gatus` | Namespace where the ConfigMap is written |
+| `configMapName` | `gatus-config` | Name of the ConfigMap to write endpoint data to (must pre-exist) |
 | `webhook.enabled` | `true` | Enable validating webhooks for CRDs (requires cert-manager) |
 | `image.repository` | `ghcr.io/wihrt/gatus-controller` | Controller image |
 | `image.tag` | `latest` | Image tag |

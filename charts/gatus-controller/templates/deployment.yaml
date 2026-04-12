@@ -33,8 +33,8 @@ spec:
           env:
             - name: TARGET_NAMESPACE
               value: {{ .Values.targetNamespace | quote }}
-            - name: SECRET_NAME
-              value: {{ .Values.secretName | quote }}
+            - name: CONFIGMAP_NAME
+              value: {{ .Values.configMapName | quote }}
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:

@@ -40,9 +40,9 @@ func main() {
 		targetNamespace = "gatus"
 	}
 
-	secretName := os.Getenv("SECRET_NAME")
-	if secretName == "" {
-		secretName = "gatus-secrets"
+	configMapName := os.Getenv("CONFIGMAP_NAME")
+	if configMapName == "" {
+		configMapName = "gatus-config"
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -54,9 +54,9 @@ func main() {
 		LeaderElection:         false,
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
-				// Restrict Secret caching to only the target namespace,
-				// avoiding cluster-wide list/watch on secrets.
-				&corev1.Secret{}: {
+				// Restrict ConfigMap caching to only the target namespace,
+				// avoiding cluster-wide list/watch on configmaps.
+				&corev1.ConfigMap{}: {
 					Namespaces: map[string]cache.Config{
 						targetNamespace: {},
 					},
@@ -73,7 +73,7 @@ func main() {
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
 		TargetNamespace: targetNamespace,
-		SecretName:      secretName,
+		ConfigMapName:   configMapName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GatusEndpoint")
 		os.Exit(1)
@@ -82,7 +82,7 @@ func main() {
 	if err = (&controller.GatusExternalEndpointReconciler{
 		Client:          mgr.GetClient(),
 		TargetNamespace: targetNamespace,
-		SecretName:      secretName,
+		ConfigMapName:   configMapName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GatusExternalEndpoint")
 		os.Exit(1)

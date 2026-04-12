@@ -11,7 +11,7 @@ spec:
         tail: 100
   steps:
     # ── Step 1: External endpoint aggregated into external-endpoints.yaml ─────
-    - name: "[GatusExternalEndpoint] aggregated into external-endpoints.yaml Secret"
+    - name: "[GatusExternalEndpoint] aggregated into external-endpoints.yaml ConfigMap"
       try:
         - apply:
             resource:
@@ -28,21 +28,21 @@ spec:
         - assert:
             resource:
               apiVersion: v1
-              kind: Secret
+              kind: ConfigMap
               metadata:
-                name: gatus-secrets
+                name: gatus-config
                 namespace: gatus
-              "(contains(base64_decode(lookup(data, 'external-endpoints.yaml')), 'e2e-worker'))": true
-              "(contains(base64_decode(lookup(data, 'external-endpoints.yaml')), 'workers'))": true
-              "(contains(base64_decode(lookup(data, 'external-endpoints.yaml')), 'my-e2e-secret-token'))": true
-              "(contains(base64_decode(lookup(data, 'external-endpoints.yaml')), '30m'))": true
+              "(contains(lookup(data, 'external-endpoints.yaml'), 'e2e-worker'))": true
+              "(contains(lookup(data, 'external-endpoints.yaml'), 'workers'))": true
+              "(contains(lookup(data, 'external-endpoints.yaml'), 'my-e2e-secret-token'))": true
+              "(contains(lookup(data, 'external-endpoints.yaml'), '30m'))": true
       catch:
         - describe:
             apiVersion: monitoring.gatus.io/v1alpha1
             kind: GatusExternalEndpoint
             name: test-worker
         - script:
-            content: kubectl get secret gatus-secrets -n gatus -o jsonpath='{.data.external-endpoints\.yaml}' | base64 -d
+            content: kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.external-endpoints\.yaml}'
 
     # ── Step 2: Inline alert renders in external-endpoints.yaml ───────────────
     - name: "[GatusExternalEndpoint] inline alert renders in external-endpoints.yaml"
@@ -65,20 +65,20 @@ spec:
         - assert:
             resource:
               apiVersion: v1
-              kind: Secret
+              kind: ConfigMap
               metadata:
-                name: gatus-secrets
+                name: gatus-config
                 namespace: gatus
-              "(contains(base64_decode(lookup(data, 'external-endpoints.yaml')), 'alerted-worker'))": true
-              "(contains(base64_decode(lookup(data, 'external-endpoints.yaml')), 'type: slack'))": true
-              "(contains(base64_decode(lookup(data, 'external-endpoints.yaml')), 'failure-threshold: 3'))": true
+              "(contains(lookup(data, 'external-endpoints.yaml'), 'alerted-worker'))": true
+              "(contains(lookup(data, 'external-endpoints.yaml'), 'type: slack'))": true
+              "(contains(lookup(data, 'external-endpoints.yaml'), 'failure-threshold: 3'))": true
       catch:
         - describe:
             apiVersion: monitoring.gatus.io/v1alpha1
             kind: GatusExternalEndpoint
             name: test-alerted-worker
         - script:
-            content: kubectl get secret gatus-secrets -n gatus -o jsonpath='{.data.external-endpoints\.yaml}' | base64 -d
+            content: kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.external-endpoints\.yaml}'
 
     # ── Step 3: Update token is reflected in Secret ──────────────────────────
     - name: "[GatusExternalEndpoint] update token reflected in external-endpoints.yaml"
@@ -98,19 +98,19 @@ spec:
         - assert:
             resource:
               apiVersion: v1
-              kind: Secret
+              kind: ConfigMap
               metadata:
-                name: gatus-secrets
+                name: gatus-config
                 namespace: gatus
-              "(contains(base64_decode(lookup(data, 'external-endpoints.yaml')), 'updated-secret-token'))": true
-              "(contains(base64_decode(lookup(data, 'external-endpoints.yaml')), '15m'))": true
+              "(contains(lookup(data, 'external-endpoints.yaml'), 'updated-secret-token'))": true
+              "(contains(lookup(data, 'external-endpoints.yaml'), '15m'))": true
       catch:
         - describe:
             apiVersion: monitoring.gatus.io/v1alpha1
             kind: GatusExternalEndpoint
             name: test-worker
         - script:
-            content: kubectl get secret gatus-secrets -n gatus -o jsonpath='{.data.external-endpoints\.yaml}' | base64 -d
+            content: kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.external-endpoints\.yaml}'
 
     # ── Step 4: Delete external endpoint removes it from Secret ──────────────
     - name: "[GatusExternalEndpoint] deleted endpoint removed from external-endpoints.yaml"
@@ -124,7 +124,7 @@ spec:
             timeout: 30s
             content: |
               for i in $(seq 1 15); do
-                DATA=$(kubectl get secret gatus-secrets -n gatus -o jsonpath='{.data.external-endpoints\.yaml}' | base64 -d)
+                DATA=$(kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.external-endpoints\.yaml}')
                 if echo "$DATA" | grep -q "e2e-worker"; then
                   sleep 2
                 else
@@ -135,4 +135,4 @@ spec:
               exit 1
       catch:
         - script:
-            content: kubectl get secret gatus-secrets -n gatus -o jsonpath='{.data.external-endpoints\.yaml}' | base64 -d
+            content: kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.external-endpoints\.yaml}'

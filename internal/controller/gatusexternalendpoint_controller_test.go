@@ -21,13 +21,13 @@ func newExtEndpointReconciler(fakeClient client.Client) *GatusExternalEndpointRe
 	return &GatusExternalEndpointReconciler{
 		Client:          fakeClient,
 		TargetNamespace: "gatus",
-		SecretName:      "gatus-secrets",
+		ConfigMapName:   "gatus-config",
 	}
 }
 
-func extEndpointSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"},
+func extEndpointConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"},
 	}
 }
 
@@ -44,16 +44,16 @@ func reconcileExtEndpoint(t *testing.T, r *GatusExternalEndpointReconciler, name
 
 func getExternalEndpointsYAML(t *testing.T, fakeClient client.Client) map[string]interface{} {
 	t.Helper()
-	secret := &corev1.Secret{}
-	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, secret); err != nil {
-		t.Fatalf("Secret not found: %v", err)
+	cm := &corev1.ConfigMap{}
+	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, cm); err != nil {
+		t.Fatalf("ConfigMap not found: %v", err)
 	}
-	raw, ok := secret.Data["external-endpoints.yaml"]
+	raw, ok := cm.Data["external-endpoints.yaml"]
 	if !ok {
-		t.Fatal("external-endpoints.yaml key not found in Secret")
+		t.Fatal("external-endpoints.yaml key not found in ConfigMap")
 	}
 	var out map[string]interface{}
-	if err := yaml.Unmarshal(raw, &out); err != nil {
+	if err := yaml.Unmarshal([]byte(raw), &out); err != nil {
 		t.Fatalf("external-endpoints.yaml is not valid YAML: %v\ncontent:\n%s", err, raw)
 	}
 	return out
@@ -72,7 +72,7 @@ func TestGatusExternalEndpointReconciler_WritesExternalEndpointsYAML(t *testing.
 			Token:   "super-secret-token",
 		},
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointSecret(), ext).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointConfigMap(), ext).Build()
 	r := newExtEndpointReconciler(fakeClient)
 	reconcileExtEndpoint(t, r, "my-service", "default")
 
@@ -107,7 +107,7 @@ func TestGatusExternalEndpointReconciler_WithHeartbeat(t *testing.T) {
 			},
 		},
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointSecret(), ext).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointConfigMap(), ext).Build()
 	r := newExtEndpointReconciler(fakeClient)
 	reconcileExtEndpoint(t, r, "heartbeat-svc", "default")
 
@@ -134,12 +134,12 @@ func TestGatusExternalEndpointReconciler_NoAlerts(t *testing.T) {
 			Token: "tok-abc",
 		},
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointSecret(), ext).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointConfigMap(), ext).Build()
 	r := newExtEndpointReconciler(fakeClient)
 	reconcileExtEndpoint(t, r, "no-alert-svc", "default")
 
-	secret := &corev1.Secret{}
-	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, secret)
+	secret := &corev1.ConfigMap{}
+	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, secret)
 	raw := string(secret.Data["external-endpoints.yaml"])
 
 	if strings.Contains(raw, "alerts:") {
@@ -158,16 +158,16 @@ func TestGatusExternalEndpointReconciler_SpecialCharactersInToken(t *testing.T) 
 			Token: `tok:special"value'with\backslash`,
 		},
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointSecret(), ext).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointConfigMap(), ext).Build()
 	r := newExtEndpointReconciler(fakeClient)
 	reconcileExtEndpoint(t, r, "special-token-svc", "default")
 
-	secret := &corev1.Secret{}
-	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, secret)
+	secret := &corev1.ConfigMap{}
+	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, secret)
 	raw := secret.Data["external-endpoints.yaml"]
 
 	var out map[string]interface{}
-	if err := yaml.Unmarshal(raw, &out); err != nil {
+	if err := yaml.Unmarshal([]byte(raw), &out); err != nil {
 		t.Fatalf("external-endpoints.yaml with special token is not valid YAML: %v\ncontent:\n%s", err, raw)
 	}
 
@@ -199,7 +199,7 @@ func TestGatusExternalEndpointReconciler_WithInlineAlert(t *testing.T) {
 			},
 		},
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointSecret(), ext).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointConfigMap(), ext).Build()
 	r := newExtEndpointReconciler(fakeClient)
 	reconcileExtEndpoint(t, r, "ext-with-alert", "default")
 
@@ -239,12 +239,12 @@ func TestGatusExternalEndpointReconciler_AlertOverrides(t *testing.T) {
 			},
 		},
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointSecret(), ext).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointConfigMap(), ext).Build()
 	r := newExtEndpointReconciler(fakeClient)
 	reconcileExtEndpoint(t, r, "ext-override", "default")
 
-	secret := &corev1.Secret{}
-	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, secret)
+	secret := &corev1.ConfigMap{}
+	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, secret)
 	raw := string(secret.Data["external-endpoints.yaml"])
 
 	checks := map[string]string{
@@ -306,12 +306,12 @@ func TestGatusExternalEndpointReconciler_ProviderOverride(t *testing.T) {
 			},
 		},
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointSecret(), ext).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointConfigMap(), ext).Build()
 	r := newExtEndpointReconciler(fakeClient)
 	reconcileExtEndpoint(t, r, "ext-override", "default")
 
-	secret := &corev1.Secret{}
-	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, secret)
+	secret := &corev1.ConfigMap{}
+	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, secret)
 	raw := string(secret.Data["external-endpoints.yaml"])
 
 	if !strings.Contains(raw, "provider-override") {
@@ -333,7 +333,7 @@ func TestGatusExternalEndpointReconciler_DeletedEndpointRemoved(t *testing.T) {
 			Token: "tok-delete",
 		},
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointSecret(), ext).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointConfigMap(), ext).Build()
 	r := newExtEndpointReconciler(fakeClient)
 
 	reconcileExtEndpoint(t, r, "to-delete", "default")
@@ -366,7 +366,7 @@ func TestGatusExternalEndpointReconciler_UpdateTokenReflected(t *testing.T) {
 			Token: "original-token",
 		},
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointSecret(), ext).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointConfigMap(), ext).Build()
 	r := newExtEndpointReconciler(fakeClient)
 
 	reconcileExtEndpoint(t, r, "updatable-ext", "default")
@@ -379,8 +379,8 @@ func TestGatusExternalEndpointReconciler_UpdateTokenReflected(t *testing.T) {
 
 	reconcileExtEndpoint(t, r, "updatable-ext", "default")
 
-	secret := &corev1.Secret{}
-	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, secret)
+	secret := &corev1.ConfigMap{}
+	_ = fakeClient.Get(context.Background(), types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, secret)
 	raw := string(secret.Data["external-endpoints.yaml"])
 
 	if !strings.Contains(raw, "updated-token") {
@@ -403,7 +403,7 @@ func TestGatusExternalEndpointReconciler_DeterministicOrder(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "aaa-worker", Namespace: "default"},
 		Spec:       monitoringv1alpha1.GatusExternalEndpointSpec{Name: "AAA Worker", Token: "tok-a"},
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointSecret(), ext1, ext2).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(extEndpointConfigMap(), ext1, ext2).Build()
 	r := newExtEndpointReconciler(fakeClient)
 
 	reconcileExtEndpoint(t, r, "zzz-worker", "default")

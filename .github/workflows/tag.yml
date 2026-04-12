@@ -56,7 +56,9 @@ jobs:
         run: |
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.short }}
           docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.short }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.tag }}
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.short }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.tag }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
   # ── Helm: bump chart version/appVersion, publish, and upload artifact ────────
   helm:
