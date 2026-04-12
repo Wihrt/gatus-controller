@@ -16,11 +16,11 @@ import (
 const externalEndpointsKey = "external-endpoints.yaml"
 
 // GatusExternalEndpointReconciler reconciles GatusExternalEndpoint resources and
-// aggregates them into the gatus Secret under the external-endpoints.yaml key.
+// aggregates them into the gatus ConfigMap under the external-endpoints.yaml key.
 type GatusExternalEndpointReconciler struct {
 	client.Client
 	TargetNamespace string
-	SecretName      string
+	ConfigMapName   string
 }
 
 // --- Internal YAML representation for external endpoints ---
@@ -88,7 +88,7 @@ func (r *GatusExternalEndpointReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("failed to marshal Gatus external endpoints config: %w", err)
 	}
 
-	return upsertSecretKey(ctx, r.Client, r.TargetNamespace, r.SecretName, externalEndpointsKey, string(data))
+	return upsertConfigMapKey(ctx, r.Client, r.TargetNamespace, r.ConfigMapName, externalEndpointsKey, string(data))
 }
 
 func (r *GatusExternalEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {

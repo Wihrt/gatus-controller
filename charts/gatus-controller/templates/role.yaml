@@ -7,9 +7,9 @@ metadata:
     {{- include "gatus-controller.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
-    resources: ["secrets"]
+    resources: ["configmaps"]
     verbs: ["list", "watch"]
   - apiGroups: [""]
-    resources: ["secrets"]
-    resourceNames: ["{{ .Values.secretName }}"]
+    resources: ["configmaps"]
+    resourceNames: ["{{ .Values.configMapName }}"]
     verbs: ["get", "update", "patch"]

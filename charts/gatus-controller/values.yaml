@@ -17,12 +17,12 @@ serviceAccount:
   create: true
   name: ""
 
-# Namespace where the Gatus Secret will be written
+# Namespace where the Gatus ConfigMap will be written
 targetNamespace: gatus
 
-# Name of the Secret where endpoint configurations (endpoints.yaml,
+# Name of the ConfigMap where endpoint configurations (endpoints.yaml,
 # external-endpoints.yaml) will be written. Must already exist in targetNamespace.
-secretName: gatus-secrets
+configMapName: gatus-config
 
 # Webhook configuration for validating admission of GatusEndpoint resources.
 # Requires cert-manager to be installed in the cluster when enabled.

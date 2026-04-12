@@ -22,7 +22,7 @@ func TestGatusEndpointReconciler_WritesEndpointsToSecret(t *testing.T) {
 	ctx := context.Background()
 	s := newTestScheme(t)
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 
 	ep := &monitoringv1alpha1.GatusEndpoint{
 		ObjectMeta: metav1.ObjectMeta{
@@ -46,7 +46,7 @@ func TestGatusEndpointReconciler_WritesEndpointsToSecret(t *testing.T) {
 		Client:          fakeClient,
 		Scheme:          s,
 		TargetNamespace: "gatus",
-		SecretName:      "gatus-secrets",
+		ConfigMapName:   "gatus-config",
 	}
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "my-endpoint", Namespace: "default"}}
@@ -55,8 +55,8 @@ func TestGatusEndpointReconciler_WritesEndpointsToSecret(t *testing.T) {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updated := &corev1.Secret{}
-	if err := fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated); err != nil {
+	updated := &corev1.ConfigMap{}
+	if err := fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updated); err != nil {
 		t.Fatalf("Secret not found: %v", err)
 	}
 
@@ -98,7 +98,7 @@ func TestGatusEndpointReconciler_RequeuesWhenSecretMissing(t *testing.T) {
 		Client:          fakeClient,
 		Scheme:          s,
 		TargetNamespace: "gatus",
-		SecretName:      "gatus-secrets",
+		ConfigMapName:   "gatus-config",
 	}
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "my-endpoint", Namespace: "default"}}
@@ -117,7 +117,7 @@ func TestGatusEndpointReconciler_DefaultCondition(t *testing.T) {
 	ctx := context.Background()
 	s := newTestScheme(t)
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 
 	ep := &monitoringv1alpha1.GatusEndpoint{
 		ObjectMeta: metav1.ObjectMeta{
@@ -140,7 +140,7 @@ func TestGatusEndpointReconciler_DefaultCondition(t *testing.T) {
 		Client:          fakeClient,
 		Scheme:          s,
 		TargetNamespace: "gatus",
-		SecretName:      "gatus-secrets",
+		ConfigMapName:   "gatus-config",
 	}
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "no-conditions", Namespace: "default"}}
@@ -149,8 +149,8 @@ func TestGatusEndpointReconciler_DefaultCondition(t *testing.T) {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updated := &corev1.Secret{}
-	if err := fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated); err != nil {
+	updated := &corev1.ConfigMap{}
+	if err := fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updated); err != nil {
 		t.Fatalf("Secret not found: %v", err)
 	}
 
@@ -189,17 +189,17 @@ func TestGatusEndpointReconciler_InlineAlert(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "my-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updatedSecret := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updatedSecret)
+	updatedSecret := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updatedSecret)
 	y := string(updatedSecret.Data["endpoints.yaml"])
 
 	checks := map[string]string{
@@ -243,17 +243,17 @@ func TestGatusEndpointReconciler_InlineAlertOverrides(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "override-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updatedSecret := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updatedSecret)
+	updatedSecret := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updatedSecret)
 	y := string(updatedSecret.Data["endpoints.yaml"])
 
 	checks := map[string]string{
@@ -300,17 +300,17 @@ func TestGatusEndpointReconciler_WithClientConfig(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "client-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updatedSecret4 := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updatedSecret4)
+	updatedSecret4 := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updatedSecret4)
 	y := string(updatedSecret4.Data["endpoints.yaml"])
 
 	checks := map[string]string{
@@ -359,17 +359,17 @@ func TestGatusEndpointReconciler_ProviderOverride(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "override-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updatedSecret := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updatedSecret)
+	updatedSecret := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updatedSecret)
 	y := string(updatedSecret.Data["endpoints.yaml"])
 
 	if !strings.Contains(y, "provider-override") {
@@ -398,17 +398,17 @@ func TestGatusEndpointReconciler_WithDNSConfig(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "dns-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updated := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	updated := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updated)
 	y := string(updated.Data["endpoints.yaml"])
 
 	for _, check := range []string{"query-name: example.com", "query-type: A"} {
@@ -436,17 +436,17 @@ func TestGatusEndpointReconciler_WithSSHConfig(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ssh-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updated := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	updated := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updated)
 	y := string(updated.Data["endpoints.yaml"])
 
 	for _, check := range []string{"username: admin", "password: s3cret"} {
@@ -474,17 +474,17 @@ func TestGatusEndpointReconciler_WithUIConfig(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ui-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updated := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	updated := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updated)
 	y := string(updated.Data["endpoints.yaml"])
 
 	for _, check := range []string{"hide-conditions: true", "hide-hostname: true", "hide-url: true"} {
@@ -515,17 +515,17 @@ func TestGatusEndpointReconciler_WithMaintenanceWindows(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "mw-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updated := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	updated := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updated)
 	y := string(updated.Data["endpoints.yaml"])
 
 	for _, check := range []string{"maintenance-windows:", "start: \"23:00\"", "duration: 1h", "timezone: UTC", "- Monday", "- Friday"} {
@@ -549,17 +549,17 @@ func TestGatusEndpointReconciler_NoAlerts(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "no-alerts-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updated := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	updated := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updated)
 	y := string(updated.Data["endpoints.yaml"])
 
 	if !strings.Contains(y, "No Alerts EP") {
@@ -570,9 +570,9 @@ func TestGatusEndpointReconciler_NoAlerts(t *testing.T) {
 	}
 }
 
-// TestGatusEndpointReconciler_ConflictDeduplication verifies that when two GatusEndpoints
-// share the same spec.name, only the alphabetically first one is included in endpoints.yaml.
-func TestGatusEndpointReconciler_ConflictDeduplication(t *testing.T) {
+// TestGatusEndpointReconciler_DuplicateSpecName verifies that when two GatusEndpoints
+// share the same spec.name, both are included in endpoints.yaml.
+func TestGatusEndpointReconciler_DuplicateSpecName(t *testing.T) {
 	ctx := context.Background()
 	s := newTestScheme(t)
 
@@ -591,24 +591,27 @@ func TestGatusEndpointReconciler_ConflictDeduplication(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep1, ep2).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "aaa-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile aaa-ep returned error: %v", err)
 	}
 
-	updatedSecret := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updatedSecret)
+	updatedSecret := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updatedSecret)
 	y := string(updatedSecret.Data["endpoints.yaml"])
 
 	if !strings.Contains(y, "aaa.example.com") {
-		t.Errorf("expected 'aaa.example.com' (winner) in endpoints.yaml, got:\n%s", y)
+		t.Errorf("expected 'aaa.example.com' in endpoints.yaml, got:\n%s", y)
 	}
-	if strings.Count(y, "shared-name") > 1 {
-		t.Errorf("expected only one 'shared-name' entry, got:\n%s", y)
+	if !strings.Contains(y, "zzz.example.com") {
+		t.Errorf("expected 'zzz.example.com' in endpoints.yaml, got:\n%s", y)
+	}
+	if strings.Count(y, "shared-name") != 2 {
+		t.Errorf("expected two 'shared-name' entries, got:\n%s", y)
 	}
 }
 
@@ -619,7 +622,7 @@ func TestGatusEndpointReconciler_DeletedEndpointRemovedFromSecret(t *testing.T) 
 	ctx := context.Background()
 	s := newTestScheme(t)
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	ep := &monitoringv1alpha1.GatusEndpoint{
 		ObjectMeta: metav1.ObjectMeta{Name: "to-delete", Namespace: "default"},
 		Spec: monitoringv1alpha1.GatusEndpointSpec{
@@ -630,7 +633,7 @@ func TestGatusEndpointReconciler_DeletedEndpointRemovedFromSecret(t *testing.T) 
 	}
 
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	// Create
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "to-delete", Namespace: "default"}})
@@ -638,8 +641,8 @@ func TestGatusEndpointReconciler_DeletedEndpointRemovedFromSecret(t *testing.T) 
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updated := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	updated := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updated)
 	if !strings.Contains(string(updated.Data["endpoints.yaml"]), "Deletable Service") {
 		t.Fatal("expected endpoint to be present before deletion")
 	}
@@ -655,7 +658,7 @@ func TestGatusEndpointReconciler_DeletedEndpointRemovedFromSecret(t *testing.T) 
 		t.Fatalf("Reconcile after delete returned error: %v", err)
 	}
 
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updated)
 	if strings.Contains(string(updated.Data["endpoints.yaml"]), "Deletable Service") {
 		t.Errorf("expected endpoint to be removed after deletion, got:\n%s", string(updated.Data["endpoints.yaml"]))
 	}
@@ -667,7 +670,7 @@ func TestGatusEndpointReconciler_UpdateReflectedInSecret(t *testing.T) {
 	ctx := context.Background()
 	s := newTestScheme(t)
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	ep := &monitoringv1alpha1.GatusEndpoint{
 		ObjectMeta: metav1.ObjectMeta{Name: "updatable-ep", Namespace: "default"},
 		Spec: monitoringv1alpha1.GatusEndpointSpec{
@@ -678,7 +681,7 @@ func TestGatusEndpointReconciler_UpdateReflectedInSecret(t *testing.T) {
 	}
 
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	// Initial reconcile
 	_, _ = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "updatable-ep", Namespace: "default"}})
@@ -696,8 +699,8 @@ func TestGatusEndpointReconciler_UpdateReflectedInSecret(t *testing.T) {
 		t.Fatalf("Reconcile after update returned error: %v", err)
 	}
 
-	updated := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updated)
+	updated := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updated)
 	y := string(updated.Data["endpoints.yaml"])
 	if !strings.Contains(y, "updated.example.com") {
 		t.Errorf("expected updated URL in endpoints.yaml, got:\n%s", y)
@@ -727,17 +730,17 @@ func TestGatusEndpointReconciler_MultipleAlertTypes(t *testing.T) {
 		},
 	}
 
-	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gatus-secrets", Namespace: "gatus"}}
+	secret := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gatus-config", Namespace: "gatus"}}
 	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(secret, ep).Build()
-	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", SecretName: "gatus-secrets"}
+	r := &GatusEndpointReconciler{Client: fakeClient, Scheme: s, TargetNamespace: "gatus", ConfigMapName: "gatus-config"}
 
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "multi-alert-ep", Namespace: "default"}})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
 
-	updatedSecret := &corev1.Secret{}
-	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-secrets", Namespace: "gatus"}, updatedSecret)
+	updatedSecret := &corev1.ConfigMap{}
+	_ = fakeClient.Get(ctx, types.NamespacedName{Name: "gatus-config", Namespace: "gatus"}, updatedSecret)
 	y := string(updatedSecret.Data["endpoints.yaml"])
 
 	for _, alertType := range []string{"slack", "discord", "pagerduty"} {

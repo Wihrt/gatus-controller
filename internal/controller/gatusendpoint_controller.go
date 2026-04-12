@@ -21,12 +21,12 @@ const (
 )
 
 // GatusEndpointReconciler reconciles GatusEndpoint resources and aggregates them
-// into a Secret containing the Gatus endpoints configuration.
+// into a ConfigMap containing the Gatus endpoints configuration.
 type GatusEndpointReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
 	TargetNamespace string
-	SecretName      string
+	ConfigMapName   string
 }
 
 // --- Internal YAML representation types (matching Gatus config format) ---
@@ -129,25 +129,15 @@ func (r *GatusEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, fmt.Errorf("failed to list GatusEndpoints: %w", err)
 	}
 
-	// Sort for deterministic output; first alphabetically (namespace/name) wins on spec.name conflict.
+	// Sort for deterministic output.
 	sort.Slice(endpointList.Items, func(i, j int) bool {
 		ki := endpointList.Items[i].Namespace + "/" + endpointList.Items[i].Name
 		kj := endpointList.Items[j].Namespace + "/" + endpointList.Items[j].Name
 		return ki < kj
 	})
 
-	// Deduplicate by spec.name: first alphabetically wins; log a warning for conflicts.
-	seenNames := make(map[string]string, len(endpointList.Items)) // spec.name -> namespace/name of keeper
 	var endpoints []gatusEndpointYAML
 	for _, ep := range endpointList.Items {
-		if keeper, conflict := seenNames[ep.Spec.Name]; conflict {
-			logger.Info("Duplicate spec.name detected — keeping first alphabetically, skipping second",
-				"spec.name", ep.Spec.Name,
-				"kept", keeper,
-				"skipped", ep.Namespace+"/"+ep.Name)
-			continue
-		}
-		seenNames[ep.Spec.Name] = ep.Namespace + "/" + ep.Name
 
 		alertYAMLs := convertAlerts(ep.Spec.Alerts)
 
@@ -220,7 +210,7 @@ func (r *GatusEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, fmt.Errorf("failed to marshal Gatus endpoints config: %w", err)
 	}
 
-	return upsertSecretKey(ctx, r.Client, r.TargetNamespace, r.SecretName, endpointsKey, string(data))
+	return upsertConfigMapKey(ctx, r.Client, r.TargetNamespace, r.ConfigMapName, endpointsKey, string(data))
 }
 
 // convertAlerts converts inline GatusAlertSpec entries to YAML alert configs.
