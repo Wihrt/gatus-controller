@@ -4,8 +4,10 @@ act = "latest"
 go = "latest"
 hadolint = "latest"
 helm = "latest"
-pre-commit = "latest"
+# Git hooks runner, reads .pre-commit-config.yaml.
+prek = "0.5.4"
 task = "latest"
 
+# Git hooks are not versioned: install them on entering the repo (never in CI).
 [hooks]
-enter = "pre-commit install"
+enter = '[ -n "${CI:-}" ] || prek install'

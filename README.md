@@ -140,7 +140,7 @@ Install [mise](https://mise.jdx.dev/), then run:
 mise install
 ```
 
-This installs all required tools (`go`, `helm`, `task`, `act`, `hadolint`, `pre-commit`) and automatically installs the pre-commit hooks via the `mise.toml` `enter` hook.
+This installs all required tools (`go`, `helm`, `task`, `act`, `hadolint`, [`prek`](https://prek.j178.dev)) and automatically installs the git hooks via the `mise.toml` `enter` hook.
 
 ### Tasks
 
@@ -155,13 +155,13 @@ task docker-build     # build container image
 task e2e TAG=ci-test  # e2e tests — requires a configured KUBECONFIG (e.g. k3s)
 ```
 
-### Pre-commit hooks
+### Git hooks (prek)
 
-Hooks run automatically on `git commit`:
+Hooks are defined in `.pre-commit-config.yaml` and run by [prek](https://prek.j178.dev) on `git commit`:
 
 | Hook | Trigger |
 |---|---|
-| `go vet` / `go build` / `go test` | any staged `.go` file |
+| `go fmt` / `go vet` / `go build` / `go test` | any staged `.go` file |
 | `hadolint` | `Dockerfile` changes |
 | `helm lint` | any change under `charts/` |
 | end-of-file fixer / trailing whitespace | all files |
@@ -169,8 +169,10 @@ Hooks run automatically on `git commit`:
 To run all hooks manually:
 
 ```bash
-pre-commit run --all-files
+prek run --all-files
 ```
+
+The `Git hooks (prek)` job of the PR workflow runs the same hooks in CI.
 
 ### Validate GitHub Actions locally
 

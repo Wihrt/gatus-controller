@@ -11,7 +11,7 @@ Kubernetes controller that manages [Gatus](https://github.com/TwiN/gatus) monito
 Tools managed via [mise](https://mise.jdx.dev/) (`mise.toml`), tasks via [Task](https://taskfile.dev/) (`Taskfile.yml`).
 
 ```bash
-mise install                   # Install all tools (go, helm, task, act, chainsaw, hadolint, pre-commit)
+mise install                   # Install all tools (go, helm, task, act, chainsaw, hadolint, prek)
 task build                     # go build ./...
 task test                      # go test ./... -v
 task fmt                       # go fmt ./...
@@ -28,7 +28,7 @@ Run a single test:
 go test ./internal/controller/... -run TestGatusEndpointReconciler_DefaultCondition -v
 ```
 
-Pre-commit hooks run `go vet`, `go build`, `go test`, `hadolint`, and `helm lint` automatically on commit.
+Git hooks (`.pre-commit-config.yaml`, run by [prek](https://prek.j178.dev)) run `go fmt`, `go vet`, `go build`, `go test`, `hadolint`, and `helm lint` automatically on commit. CI runs them in the `prek` job of `pr.yml` (`prek run --all-files`).
 
 ## Architecture
 

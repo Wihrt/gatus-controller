@@ -1,3 +1,5 @@
+# Hooks run by prek (https://prek.j178.dev), which reads this pre-commit format.
+# Installed by the mise `enter` hook; run manually with `prek run --all-files`.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

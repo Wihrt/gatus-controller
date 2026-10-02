@@ -9,6 +9,34 @@ permissions:
   contents: read
 
 jobs:
+  # ── Git hooks (prek): go fmt, hadolint, helm lint, whitespace ───────────────
+  prek:
+    name: Git hooks (prek)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # Installs go, task, helm, hadolint and prek from mise.toml.
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+        with:
+          cache: true
+
+      - name: Cache prek hook environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/prek
+          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml', 'mise.toml') }}
+          restore-keys: |
+            prek-${{ runner.os }}-
+
+      # go vet / build / test already run in the `go` job below.
+      - name: Run git hooks
+        run: >-
+          prek run --all-files --show-diff-on-failure
+          --skip go-vet --skip go-build --skip go-test
+
   # ── Go: lint, vet, build, unit tests ────────────────────────────────────────
   go:
     name: Go tests
