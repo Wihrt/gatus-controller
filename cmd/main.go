@@ -97,8 +97,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := ctrl.NewWebhookManagedBy(mgr).
-		For(&monitoringv1alpha1.GatusEndpoint{}).
+	if err := ctrl.NewWebhookManagedBy(mgr, &monitoringv1alpha1.GatusEndpoint{}).
 		WithValidator(&webhook.GatusEndpointValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to register webhook", "webhook", "GatusEndpoint")

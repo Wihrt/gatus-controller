@@ -60,7 +60,7 @@ Git hooks (`.pre-commit-config.yaml`, run by [prek](https://prek.j178.dev)) run 
 
 ## Docker
 
-Multi-stage build: `golang:1.24-alpine` → `gcr.io/distroless/static:nonroot`. Binary at `/manager`, runs as UID 65532.
+Multi-stage build: `golang:1.27-alpine` → `gcr.io/distroless/static:nonroot`. Binary at `/manager`, runs as UID 65532.
 
 ## Helm Chart
 
