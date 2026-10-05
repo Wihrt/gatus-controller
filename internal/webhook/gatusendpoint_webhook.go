@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -40,23 +39,17 @@ var (
 	lenHasFuncRegex = regexp.MustCompile(`(?i)\b(?:len|has)\(([^)]*)\)`)
 )
 
-func (v *GatusEndpointValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	ep, ok := obj.(*monitoringv1alpha1.GatusEndpoint)
-	if !ok {
-		return nil, fmt.Errorf("expected a GatusEndpoint")
-	}
+var _ admission.Validator[*monitoringv1alpha1.GatusEndpoint] = &GatusEndpointValidator{}
+
+func (v *GatusEndpointValidator) ValidateCreate(_ context.Context, ep *monitoringv1alpha1.GatusEndpoint) (admission.Warnings, error) {
 	return nil, validateEndpointConditions(ep.Spec.Conditions)
 }
 
-func (v *GatusEndpointValidator) ValidateUpdate(_ context.Context, _ runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
-	ep, ok := newObj.(*monitoringv1alpha1.GatusEndpoint)
-	if !ok {
-		return nil, fmt.Errorf("expected a GatusEndpoint")
-	}
+func (v *GatusEndpointValidator) ValidateUpdate(_ context.Context, _, ep *monitoringv1alpha1.GatusEndpoint) (admission.Warnings, error) {
 	return nil, validateEndpointConditions(ep.Spec.Conditions)
 }
 
-func (v *GatusEndpointValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (v *GatusEndpointValidator) ValidateDelete(_ context.Context, _ *monitoringv1alpha1.GatusEndpoint) (admission.Warnings, error) {
 	return nil, nil
 }
 
