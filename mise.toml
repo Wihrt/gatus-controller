@@ -4,8 +4,8 @@ act = "latest"
 go = "latest"
 hadolint = "latest"
 helm = "latest"
-pre-commit = "latest"
+prek = "latest"
 task = "latest"
 
 [hooks]
-enter = "pre-commit install"
+postinstall = "prek install -f"
