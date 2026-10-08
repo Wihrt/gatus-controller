@@ -82,7 +82,7 @@ spec:
                         type: string
                         description: Alert provider type.
                         enum:
-                          - awsses
+                          - aws-ses
                           - clickup
                           - custom
                           - datadog
