@@ -235,12 +235,23 @@ spec:
                       - start
                       - duration
                     properties:
+                      enabled:
+                        type: boolean
+                        description: Toggles this maintenance window. Gatus treats an unset value as enabled.
                       day:
                         type: string
+                        pattern: '^(?i)(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$'
+                        description: >-
+                          Deprecated, use every. A single day of the week (any case accepted).
+                          Merged into the generated every list, before the entries of every.
                       every:
                         type: array
+                        description: >-
+                          Days of the week for this window, e.g. [Monday, Thursday].
+                          Any case is accepted; capitalised names are emitted for Gatus.
                         items:
                           type: string
+                          pattern: '^(?i)(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$'
                       start:
                         type: string
                       duration:
