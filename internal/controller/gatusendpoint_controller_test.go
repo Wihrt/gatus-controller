@@ -203,7 +203,7 @@ func TestGatusEndpointReconciler_InlineAlert(t *testing.T) {
 	y := string(updatedSecret.Data["endpoints.yaml"])
 
 	checks := map[string]string{
-		"type: slack":              "alert type",
+		"type: slack":             "alert type",
 		"failure-threshold: 3":    "failure-threshold",
 		"success-threshold: 2":    "success-threshold",
 		"send-on-resolved: true":  "send-on-resolved",
@@ -571,7 +571,8 @@ func TestGatusEndpointReconciler_NoAlerts(t *testing.T) {
 }
 
 // TestGatusEndpointReconciler_DuplicateSpecName verifies that when two GatusEndpoints
-// share the same spec.name, both are included in endpoints.yaml.
+// share the same spec.name and group (same Gatus key), only the first one by
+// namespace/name is included in endpoints.yaml.
 func TestGatusEndpointReconciler_DuplicateSpecName(t *testing.T) {
 	ctx := context.Background()
 	s := newTestScheme(t)
@@ -607,11 +608,11 @@ func TestGatusEndpointReconciler_DuplicateSpecName(t *testing.T) {
 	if !strings.Contains(y, "aaa.example.com") {
 		t.Errorf("expected 'aaa.example.com' in endpoints.yaml, got:\n%s", y)
 	}
-	if !strings.Contains(y, "zzz.example.com") {
-		t.Errorf("expected 'zzz.example.com' in endpoints.yaml, got:\n%s", y)
+	if strings.Contains(y, "zzz.example.com") {
+		t.Errorf("did not expect duplicate 'zzz.example.com' in endpoints.yaml, got:\n%s", y)
 	}
-	if strings.Count(y, "shared-name") != 2 {
-		t.Errorf("expected two 'shared-name' entries, got:\n%s", y)
+	if strings.Count(y, "shared-name") != 1 {
+		t.Errorf("expected one 'shared-name' entry, got:\n%s", y)
 	}
 }
 
