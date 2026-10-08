@@ -1,0 +1,162 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: real-gatus
+spec:
+  concurrent: false
+  timeouts:
+    # Gatus image pull + startup happen inside script operations.
+    exec: 300s
+  catch:
+    - podLogs:
+        namespace: gatus-system
+        selector: app.kubernetes.io/name=gatus-controller
+        tail: 100
+    - describe:
+        apiVersion: v1
+        kind: Pod
+        namespace: gatus
+        selector: app.kubernetes.io/name=gatus
+    - podLogs:
+        namespace: gatus
+        selector: app.kubernetes.io/name=gatus
+        tail: 300
+    - script:
+        content: |
+          kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.endpoints\.yaml}'
+          echo ----
+          kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.external-endpoints\.yaml}'
+  steps:
+    # ── Step 1: apply CRs covering as many CRD fields as possible ────────────
+    - name: "[real Gatus] controller generates config for every CRD field"
+      try:
+        - apply:
+            file: endpoints.yaml
+        - apply:
+            file: external-endpoints.yaml
+        - script:
+            timeout: 60s
+            content: |
+              # Wait until every CR is reflected in the ConfigMap (8 endpoints, 3 external endpoints).
+              for i in $(seq 1 30); do
+                EP=$(kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.endpoints\.yaml}' | grep -c '^ *- name: ' || true)
+                EX=$(kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.external-endpoints\.yaml}' | grep -c '^ *- name: ' || true)
+                if [ "$EP" = "8" ] && [ "$EX" = "3" ]; then
+                  exit 0
+                fi
+                sleep 2
+              done
+              echo "FAIL: ConfigMap not converged (endpoints=$EP, external-endpoints=$EX)"
+              exit 1
+
+    # ── Step 2: global Gatus config living next to the controller-managed keys ─
+    - name: "[real Gatus] alerting providers configured next to the generated keys"
+      try:
+        - script:
+            content: |
+              # Third key in the same ConfigMap, as a user would do. It makes Gatus validate
+              # every providerOverride against a configured provider.
+              kubectl patch configmap gatus-config -n gatus --type merge -p '{"data":{"alerting.yaml":"alerting:\n  slack:\n    webhook-url: https://hooks.slack.com/services/default\n  discord:\n    webhook-url: https://discord.com/api/webhooks/default\n"}}'
+      cleanup:
+        - script:
+            content: |
+              kubectl patch configmap gatus-config -n gatus --type merge -p '{"data":{"alerting.yaml":null}}'
+
+    # ── Step 3: start Gatus on the generated config ──────────────────────────
+    # Gatus is (re)started instead of waiting for its hot reload: it polls the file
+    # mtime every 30s, which is slow and not guaranteed to notice ConfigMap volume updates.
+    - name: "[real Gatus] Gatus starts and becomes Ready on the generated config"
+      try:
+        - script:
+            timeout: 300s
+            content: |
+              kubectl scale deployment/gatus -n gatus --replicas=1
+              kubectl rollout restart deployment/gatus -n gatus
+              kubectl rollout status deployment/gatus -n gatus --timeout=240s
+      cleanup:
+        - script:
+            content: |
+              kubectl scale deployment/gatus -n gatus --replicas=0
+
+    # ── Step 4: Gatus accepted and loaded the configuration ──────────────────
+    - name: "[real Gatus] no config errors, no restarts, all endpoints loaded"
+      try:
+        - script:
+            timeout: 120s
+            content: |
+              set -eu
+              POD=$(kubectl get pods -n gatus -l app.kubernetes.io/name=gatus --sort-by=.metadata.creationTimestamp -o name | tail -n 1)
+              echo "Gatus pod: $POD"
+
+              RESTARTS=$(kubectl get "$POD" -n gatus -o jsonpath='{.status.containerStatuses[0].restartCount}')
+              if [ "$RESTARTS" != "0" ]; then
+                echo "FAIL: Gatus restarted $RESTARTS time(s)"
+                exit 1
+              fi
+
+              LOGS=$(kubectl logs "$POD" -n gatus)
+              echo "$LOGS"
+
+              for f in endpoints.yaml external-endpoints.yaml alerting.yaml; do
+                echo "$LOGS" | grep -q "Reading configuration from /config/$f" || { echo "FAIL: Gatus did not read $f"; exit 1; }
+              done
+              echo "$LOGS" | grep -q "Validated 8 endpoints" || { echo "FAIL: expected 'Validated 8 endpoints'"; exit 1; }
+              echo "$LOGS" | grep -q "Validated 3 external endpoints" || { echo "FAIL: expected 'Validated 3 external endpoints'"; exit 1; }
+              echo "$LOGS" | grep -q "configuredProviders=\[discord slack\]" || { echo "FAIL: slack/discord providers not accepted"; exit 1; }
+              if echo "$LOGS" | grep -Ei "panic|error parsing config|invalid endpoint|invalid external endpoint|invalid overrides|Ignoring provider"; then
+                echo "FAIL: Gatus logged a configuration error (lines above)"
+                exit 1
+              fi
+
+        - script:
+            timeout: 180s
+            content: |
+              set -eu
+              POD=$(kubectl get pods -n gatus -l app.kubernetes.io/name=gatus --sort-by=.metadata.creationTimestamp -o name | tail -n 1)
+              kubectl port-forward -n gatus "$POD" 18080:8080 >/dev/null 2>&1 &
+              PF=$!
+              trap 'kill $PF 2>/dev/null || true' EXIT
+              API=http://127.0.0.1:18080
+
+              for i in $(seq 1 30); do
+                curl -fsS "$API/health" >/dev/null 2>&1 && break
+                sleep 1
+              done
+
+              # External endpoints only show up once a result is pushed: push one using the
+              # token from the CR (also proves the token reached Gatus unchanged).
+              push() {
+                curl -sS -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $2" "$API/api/v1/endpoints/$1/external?success=true"
+              }
+              [ "$(push e2e_ext-heartbeat e2e-token-heartbeat)" = "200" ] || { echo "FAIL: push to e2e_ext-heartbeat"; exit 1; }
+              [ "$(push e2e_ext-plain e2e-token-plain)" = "200" ] || { echo "FAIL: push to e2e_ext-plain"; exit 1; }
+              [ "$(push e2e_ext-plain wrong-token)" = "401" ] || { echo "FAIL: wrong token was not rejected"; exit 1; }
+
+              EXPECTED="e2e_http-basic e2e_http-full e2e_tcp e2e_dns e2e_ssh e2e_icmp e2e_http-alerts e2e_ext-heartbeat e2e_ext-plain"
+              for i in $(seq 1 60); do
+                KEYS=$(curl -fsS "$API/api/v1/endpoints/statuses" | grep -o '"key":"[^"]*"' || true)
+                MISSING=""
+                for k in $EXPECTED; do
+                  echo "$KEYS" | grep -q "\"key\":\"$k\"" || MISSING="$MISSING $k"
+                done
+                [ -z "$MISSING" ] && break
+                sleep 2
+              done
+              echo "Status keys: $KEYS"
+              [ -z "$MISSING" ] || { echo "FAIL: endpoints missing from /api/v1/endpoints/statuses:$MISSING"; exit 1; }
+
+              # Disabled endpoints must not be monitored and have no pushed result.
+              for k in e2e_http-disabled e2e_ext-disabled; do
+                if echo "$KEYS" | grep -q "\"key\":\"$k\""; then
+                  echo "FAIL: disabled endpoint $k is reported by Gatus"
+                  exit 1
+                fi
+              done
+
+              # The default condition injected by the controller must be evaluated by Gatus.
+              for i in $(seq 1 30); do
+                curl -fsS "$API/api/v1/endpoints/e2e_http-basic/statuses" | grep -q '"success":true' && exit 0
+                sleep 2
+              done
+              echo "FAIL: e2e_http-basic never succeeded"
+              exit 1
