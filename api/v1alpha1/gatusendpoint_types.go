@@ -172,11 +172,21 @@ type GatusUIConfig struct {
 
 // GatusMaintenanceWindow defines a recurring maintenance window during which alerts are suppressed.
 type GatusMaintenanceWindow struct {
-	// Day is the day of week (e.g. "monday"). Use Every for multiple days.
+	// Enabled toggles this maintenance window. Gatus treats an unset value as enabled.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Day is a single day of the week (e.g. "Monday"; any case is accepted).
+	//
+	// Deprecated: use Every instead. Gatus has no "day" key, so the controller
+	// merges this value into the generated "every" list (before the entries of Every).
+	// +kubebuilder:validation:Pattern=`^(?i)(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$`
 	// +optional
 	Day string `json:"day,omitempty"`
 
-	// Every is a list of days of the week for this window (e.g. ["monday", "thursday"]).
+	// Every is a list of days of the week for this window (e.g. ["Monday", "Thursday"]).
+	// Any case is accepted; the controller emits the capitalised names Gatus requires.
+	// +kubebuilder:validation:items:Pattern=`^(?i)(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$`
 	// +optional
 	Every []string `json:"every,omitempty"`
 
