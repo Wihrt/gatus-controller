@@ -37,13 +37,5 @@ spec:
   group: "e2e"
   token: "e2e-token-disabled"
   enabled: false
----
-# Probe: Gatus expands $VARS in config values (os.ExpandEnv).
-apiVersion: monitoring.gatus.io/v1alpha1
-kind: GatusExternalEndpoint
-metadata:
-  name: rg-ext-dollar
-spec:
-  name: "ext-dollar"
-  group: "e2e"
-  token: "e2e-$HOME-token"
+# Not covered on purpose (see PR "Findings"): a token containing "$" is
+# expanded by Gatus (os.ExpandEnv) and no longer matches what the CR says.

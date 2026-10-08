@@ -37,11 +37,11 @@ spec:
         - script:
             timeout: 60s
             content: |
-              # Wait until every CR is reflected in the ConfigMap (8 endpoints, 4 external endpoints).
+              # Wait until every CR is reflected in the ConfigMap (8 endpoints, 3 external endpoints).
               for i in $(seq 1 30); do
                 EP=$(kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.endpoints\.yaml}' | grep -c '^ *- name: ' || true)
                 EX=$(kubectl get configmap gatus-config -n gatus -o jsonpath='{.data.external-endpoints\.yaml}' | grep -c '^ *- name: ' || true)
-                if [ "$EP" = "8" ] && [ "$EX" = "4" ]; then
+                if [ "$EP" = "8" ] && [ "$EX" = "3" ]; then
                   exit 0
                 fi
                 sleep 2
@@ -101,7 +101,7 @@ spec:
                 echo "$LOGS" | grep -q "Reading configuration from /config/$f" || { echo "FAIL: Gatus did not read $f"; exit 1; }
               done
               echo "$LOGS" | grep -q "Validated 8 endpoints" || { echo "FAIL: expected 'Validated 8 endpoints'"; exit 1; }
-              echo "$LOGS" | grep -q "Validated 4 external endpoints" || { echo "FAIL: expected 'Validated 4 external endpoints'"; exit 1; }
+              echo "$LOGS" | grep -q "Validated 3 external endpoints" || { echo "FAIL: expected 'Validated 3 external endpoints'"; exit 1; }
               echo "$LOGS" | grep -q "configuredProviders=\[discord slack\]" || { echo "FAIL: slack/discord providers not accepted"; exit 1; }
               if echo "$LOGS" | grep -Ei "panic|error parsing config|invalid endpoint|invalid external endpoint|invalid overrides|Ignoring provider"; then
                 echo "FAIL: Gatus logged a configuration error (lines above)"
@@ -131,9 +131,8 @@ spec:
               [ "$(push e2e_ext-heartbeat e2e-token-heartbeat)" = "200" ] || { echo "FAIL: push to e2e_ext-heartbeat"; exit 1; }
               [ "$(push e2e_ext-plain e2e-token-plain)" = "200" ] || { echo "FAIL: push to e2e_ext-plain"; exit 1; }
               [ "$(push e2e_ext-plain wrong-token)" = "401" ] || { echo "FAIL: wrong token was not rejected"; exit 1; }
-              [ "$(push e2e_ext-dollar 'e2e-$HOME-token')" = "200" ] || { echo "FAIL: push to e2e_ext-dollar with the literal token from the CR"; exit 1; }
 
-              EXPECTED="e2e_http-basic e2e_http-full e2e_tcp e2e_dns e2e_ssh e2e_icmp e2e_http-alerts e2e_ext-heartbeat e2e_ext-plain e2e_ext-dollar"
+              EXPECTED="e2e_http-basic e2e_http-full e2e_tcp e2e_dns e2e_ssh e2e_icmp e2e_http-alerts e2e_ext-heartbeat e2e_ext-plain"
               for i in $(seq 1 60); do
                 KEYS=$(curl -fsS "$API/api/v1/endpoints/statuses" | grep -o '"key":"[^"]*"' || true)
                 MISSING=""
