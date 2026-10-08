@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Cluster bootstrap for E2E tests.
-# Installs cert-manager and the gatus-controller via Helm,
+# Installs cert-manager and the gatus-controller via Helm, prepares a Gatus
+# Deployment (0 replicas, started by the 08-real-gatus test),
 # then waits for CRDs and the controller deployment to be ready.
 # Usage: bash tests/e2e/setup.sh <image-tag>
 set -euo pipefail
@@ -13,6 +14,9 @@ TIMEOUT="90s"
 RELEASE_NAME="gatus-controller"
 # renovate: datasource=helm depName=cert-manager registryUrl=https://charts.jetstack.io
 CERT_MANAGER_VERSION="v1.19.4"
+# Gatus version run by the e2e tests against the generated configuration.
+# renovate: datasource=docker depName=ghcr.io/twin/gatus
+GATUS_VERSION="v5.37.0"
 
 echo "==> E2E setup: gatus-controller"
 echo "    Image:            ${IMAGE_REPOSITORY}:${IMAGE_TAG}"
@@ -25,6 +29,12 @@ kubectl create configmap gatus-config -n "${TARGET_NAMESPACE}" \
   --from-literal=endpoints.yaml="placeholder" \
   --from-literal=external-endpoints.yaml="placeholder" \
   --dry-run=client -o yaml | kubectl apply -f -
+
+# ── 1b. Gatus (real instance, scaled to 0) ────────────────────────────────────
+# Deployed with 0 replicas because the ConfigMap holds placeholders at this
+# point; the 08-real-gatus Chainsaw test starts it once the config is generated.
+echo "==> Deploying Gatus (${GATUS_VERSION}) with 0 replicas..."
+sed "s|__GATUS_VERSION__|${GATUS_VERSION}|g" tests/e2e/gatus/deployment.yaml | kubectl apply -f -
 
 # ── 2. Deploy cert-manager ────────────────────────────────────────────────────
 echo "==> Installing cert-manager (${CERT_MANAGER_VERSION}) via Helm..."

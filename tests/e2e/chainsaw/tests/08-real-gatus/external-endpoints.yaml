@@ -1,0 +1,49 @@
+---
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusExternalEndpoint
+metadata:
+  name: rg-ext-heartbeat
+spec:
+  name: "ext-heartbeat"
+  group: "e2e"
+  token: "e2e-token-heartbeat"
+  heartbeat:
+    interval: "30m"
+  alerts:
+    - type: slack
+      failureThreshold: 2
+      successThreshold: 1
+      sendOnResolved: true
+      description: "e2e external alert"
+      minimumReminderInterval: "15m"
+      providerOverride:
+        webhook-url: "https://hooks.slack.com/services/external"
+---
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusExternalEndpoint
+metadata:
+  name: rg-ext-plain
+spec:
+  name: "ext-plain"
+  group: "e2e"
+  token: "e2e-token-plain"
+---
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusExternalEndpoint
+metadata:
+  name: rg-ext-disabled
+spec:
+  name: "ext-disabled"
+  group: "e2e"
+  token: "e2e-token-disabled"
+  enabled: false
+---
+# Probe: Gatus expands $VARS in config values (os.ExpandEnv).
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusExternalEndpoint
+metadata:
+  name: rg-ext-dollar
+spec:
+  name: "ext-dollar"
+  group: "e2e"
+  token: "e2e-$HOME-token"
