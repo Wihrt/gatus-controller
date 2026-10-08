@@ -8,4 +8,4 @@ prek = "latest"
 task = "latest"
 
 [hooks]
-postinstall = "prek install"
+postinstall = "prek install -f"
