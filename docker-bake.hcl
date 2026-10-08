@@ -13,6 +13,7 @@ variable "TAG" {
 target "default" {
   context    = "."
   dockerfile = "Dockerfile"
+  platforms  = ["linux/amd64", "linux/arm64"]
   tags       = ["${REGISTRY}/${IMAGE_NAME}:${TAG}"]
   labels     = {
     "org.opencontainers.image.source" = "https://github.com/Wihrt/gatus-controller"

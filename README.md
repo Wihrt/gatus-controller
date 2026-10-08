@@ -66,7 +66,7 @@ helm install gatus-controller oci://ghcr.io/wihrt/charts/gatus-controller \
 | `targetNamespace` | `gatus` | Namespace where the ConfigMap is written |
 | `configMapName` | `gatus-config` | Name of the ConfigMap to write endpoint data to (must pre-exist) |
 | `webhook.enabled` | `true` | Enable validating webhooks for CRDs (requires cert-manager) |
-| `image.repository` | `ghcr.io/wihrt/gatus-controller` | Controller image |
+| `image.repository` | `ghcr.io/wihrt/gatus-controller` | Controller image (multi-arch: amd64, arm64) |
 | `image.tag` | `latest` | Image tag |
 | `replicaCount` | `1` | Number of replicas |
 
