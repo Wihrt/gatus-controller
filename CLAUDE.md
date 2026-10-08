@@ -60,7 +60,7 @@ Pre-commit hooks run `go vet`, `go build`, `go test`, `hadolint`, and `helm lint
 
 ## Docker
 
-Multi-stage build: `golang:1.24-alpine` → `gcr.io/distroless/static:nonroot`. Binary at `/manager`, runs as UID 65532.
+Multi-stage build: `golang:1.27-alpine` → `gcr.io/distroless/static:nonroot`. Binary at `/manager`, runs as UID 65532. The published image is multi-arch (linux/amd64, linux/arm64): the builder stage cross-compiles natively via `$BUILDPLATFORM`/`TARGETOS`/`TARGETARCH`, platforms are set in `docker-bake.hcl`.
 
 ## Helm Chart
 

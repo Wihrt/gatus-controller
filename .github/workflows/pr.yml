@@ -58,6 +58,14 @@ jobs:
           tags: gatus-controller:ci-test
           outputs: type=docker,dest=/tmp/image.tar
 
+      - name: Validate multi-platform build (amd64, arm64)
+        uses: docker/bake-action@v7
+        with:
+          push: false
+        env:
+          IMAGE_NAME: gatus-controller
+          TAG: ci-test
+
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v7
         with:
