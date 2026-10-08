@@ -75,8 +75,8 @@ spec:
     resolveSuccessfulConditions: true
   maintenanceWindows:
     - every:
-        - monday
-        - thursday
+        - Monday
+        - Thursday
       start: "02:00"
       duration: "1h"
       timezone: "Europe/Paris"
