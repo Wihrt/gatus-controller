@@ -140,7 +140,7 @@ Install [mise](https://mise.jdx.dev/), then run:
 mise install
 ```
 
-This installs all required tools (`go`, `helm`, `task`, `act`, `hadolint`, `pre-commit`) and automatically installs the pre-commit hooks via the `mise.toml` `enter` hook.
+This installs all required tools (`go`, `helm`, `task`, `act`, `hadolint`, `prek`) and, once the tools are installed, automatically installs the git hooks via the `mise.toml` `postinstall` hook.
 
 ### Tasks
 
@@ -169,7 +169,7 @@ Hooks run automatically on `git commit`:
 To run all hooks manually:
 
 ```bash
-pre-commit run --all-files
+prek run --all-files
 ```
 
 ### Validate GitHub Actions locally
