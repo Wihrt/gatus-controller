@@ -22,6 +22,15 @@
       "depNameTemplate": "cert-manager",
       "datasourceTemplate": "helm",
       "registryUrlTemplate": "https://charts.jetstack.io"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["^tests/e2e/setup\\.sh$"],
+      "matchStrings": [
+        "GATUS_VERSION=\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "ghcr.io/twin/gatus",
+      "datasourceTemplate": "docker"
     }
   ]
 }

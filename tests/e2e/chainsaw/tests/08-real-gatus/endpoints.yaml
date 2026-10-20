@@ -1,0 +1,192 @@
+# GatusEndpoint CRs exercising as many CRD fields as possible. Targets are
+# in-cluster / local so that nothing depends on external services being up
+# (endpoints only need to be accepted and loaded by Gatus, not healthy).
+---
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusEndpoint
+metadata:
+  name: rg-http-basic
+spec:
+  name: "http-basic"
+  group: "e2e"
+  url: "http://localhost:8080/health"
+  # no conditions: the controller injects "[STATUS] == 200"
+---
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusEndpoint
+metadata:
+  name: rg-http-full
+spec:
+  name: "http-full"
+  group: "e2e"
+  url: "http://localhost:8080/api/v1/config"
+  method: "POST"
+  interval: "30s"
+  body: '{"key": "value"}'
+  graphql: true
+  headers:
+    X-E2E: "real-gatus"
+    Authorization: "Bearer e2e-token"
+  conditions:
+    - "[STATUS] == 200"
+    - "[RESPONSE_TIME] < 500"
+    - "[BODY].status == UP"
+    - "len([BODY].items) > 0"
+    - "[CERTIFICATE_EXPIRATION] > 48h"
+  alerts:
+    - type: slack
+      enabled: true
+      failureThreshold: 5
+      successThreshold: 3
+      sendOnResolved: true
+      description: "e2e slack alert"
+      minimumReminderInterval: "10m"
+      providerOverride:
+        webhook-url: "https://hooks.slack.com/services/override"
+        title: "e2e override"
+    - type: discord
+      enabled: false
+      description: "e2e discord alert (disabled)"
+  client:
+    insecure: true
+    ignoreRedirect: true
+    timeout: "5s"
+    dnsResolver: "tcp://8.8.8.8:53"
+    proxyUrl: "http://proxy.invalid:3128"
+    network: "ip4"
+    oauth2:
+      tokenUrl: "https://auth.invalid/oauth2/token"
+      clientId: "e2e-client"
+      clientSecret: "e2e-secret"
+      scopes:
+        - "openid"
+        - "profile"
+    # tls.certificateFile / privateKeyFile are not set: Gatus loads them at
+    # startup and they would have to exist in the Gatus pod.
+    tls:
+      renegotiation: "once"
+  ui:
+    hideConditions: true
+    hideHostname: true
+    hidePort: true
+    hideUrl: true
+    hideErrors: true
+    dontResolveFailedConditions: true
+    resolveSuccessfulConditions: true
+  maintenanceWindows:
+    - every:
+        - Monday
+        - Thursday
+      start: "02:00"
+      duration: "1h"
+      timezone: "Europe/Paris"
+  extraLabels:
+    team: "e2e"
+    env: "test"
+---
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusEndpoint
+metadata:
+  name: rg-http-disabled
+spec:
+  name: "http-disabled"
+  group: "e2e"
+  url: "http://localhost:8080/health"
+  enabled: false
+---
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusEndpoint
+metadata:
+  name: rg-tcp
+spec:
+  name: "tcp"
+  group: "e2e"
+  url: "tcp://localhost:8080"
+  interval: "30s"
+  conditions:
+    - "[CONNECTED] == true"
+---
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusEndpoint
+metadata:
+  name: rg-dns
+spec:
+  name: "dns"
+  group: "e2e"
+  url: "1.1.1.1"
+  interval: "30s"
+  dns:
+    queryName: "example.com"
+    queryType: "A"
+  conditions:
+    - "[DNS_RCODE] == NOERROR"
+---
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusEndpoint
+metadata:
+  name: rg-ssh
+spec:
+  name: "ssh"
+  group: "e2e"
+  url: "ssh://localhost:22"
+  interval: "30s"
+  ssh:
+    username: "e2e"
+    password: "e2e-password"
+  conditions:
+    - "[CONNECTED] == true"
+    - "[STATUS] == 0"
+---
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusEndpoint
+metadata:
+  name: rg-icmp
+spec:
+  name: "icmp"
+  group: "e2e"
+  url: "icmp://127.0.0.1"
+  interval: "30s"
+  client:
+    network: "ip4"
+  conditions:
+    - "[CONNECTED] == true"
+---
+# Several alert providers (none configured in Gatus except slack/discord, see
+# the alerting.yaml key added by the test) with typed provider overrides.
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusEndpoint
+metadata:
+  name: rg-http-alerts
+spec:
+  name: "http-alerts"
+  group: "e2e"
+  url: "http://localhost:8080/health"
+  interval: "30s"
+  alerts:
+    - type: slack
+      providerOverride:
+        webhook-url: "https://hooks.slack.com/services/other"
+    - type: discord
+      minimumReminderInterval: "0"
+      providerOverride:
+        webhook-url: "https://discord.com/api/webhooks/override"
+        title: "e2e"
+    - type: pagerduty
+      failureThreshold: 1
+      providerOverride:
+        integration-key: "00000000000000000000000000000000"
+    - type: email
+      sendOnResolved: false
+      providerOverride:
+        to: "a@example.com,b@example.com"
+    - type: custom
+      providerOverride:
+        url: "https://example.com/hook"
+        method: "POST"
+        insecure: true
+    - type: ntfy
+      providerOverride:
+        topic: "e2e"
+        priority: 4
+    - type: teams-workflows
+    - type: incident-io
