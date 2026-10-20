@@ -30,10 +30,14 @@ var (
 	}
 
 	// placeholderRegex matches any [PLACEHOLDER] token in a condition string.
-	placeholderRegex = regexp.MustCompile(`\[[A-Z_]+\]`)
+	// Gatus resolves placeholders case-insensitively (config/endpoint/placeholder.go:135),
+	// so lowercase names are matched too and normalised before comparison.
+	placeholderRegex = regexp.MustCompile(`\[[A-Za-z_]+\]`)
 
 	// operatorRegex checks that at least one comparison operator is present.
-	operatorRegex = regexp.MustCompile(`==|!=|<=|>=|<|>`)
+	// Gatus only recognises operators surrounded by single spaces
+	// (config/endpoint/condition.go:48-81), so "[STATUS]==200" is invalid.
+	operatorRegex = regexp.MustCompile(` == | != | <= | >= | > | < `)
 
 	// lenHasFuncRegex matches any len(...) or has(...) function call in an expression.
 	lenHasFuncRegex = regexp.MustCompile(`(?i)\b(?:len|has)\(([^)]*)\)`)
@@ -82,7 +86,7 @@ func validateCondition(s string, fld *field.Path) *field.Error {
 
 	for _, m := range matches {
 		// Strip brackets.
-		name := m[1 : len(m)-1]
+		name := strings.ToUpper(m[1 : len(m)-1])
 		isValid := false
 		for _, p := range validPlaceholders {
 			if name == p {
@@ -100,7 +104,7 @@ func validateCondition(s string, fld *field.Path) *field.Error {
 		arg := strings.TrimSpace(match[1])
 		hasValidPlaceholder := false
 		for _, p := range validPlaceholders {
-			if strings.HasPrefix(arg, "["+p+"]") {
+			if strings.HasPrefix(strings.ToUpper(arg), "["+p+"]") {
 				hasValidPlaceholder = true
 				break
 			}
@@ -112,7 +116,7 @@ func validateCondition(s string, fld *field.Path) *field.Error {
 
 	// Check that a comparison operator is present.
 	if !operatorRegex.MatchString(s) {
-		return field.Invalid(fld, s, "condition must contain a comparison operator (==, !=, <, <=, >, >=)")
+		return field.Invalid(fld, s, "condition must contain a comparison operator surrounded by spaces (' == ', ' != ', ' < ', ' <= ', ' > ', ' >= ')")
 	}
 
 	return nil
