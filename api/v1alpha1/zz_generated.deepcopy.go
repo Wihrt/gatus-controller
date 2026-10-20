@@ -147,6 +147,11 @@ func (in *GatusUIConfig) DeepCopy() *GatusUIConfig {
 
 func (in *GatusMaintenanceWindow) DeepCopyInto(out *GatusMaintenanceWindow) {
 	*out = *in
+	if in.Enabled != nil {
+		in, out := &in.Enabled, &out.Enabled
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Every != nil {
 		in, out := &in.Every, &out.Every
 		*out = make([]string, len(*in))

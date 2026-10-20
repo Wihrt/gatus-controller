@@ -111,7 +111,7 @@ type gatusUIYAML struct {
 }
 
 type gatusMaintenanceWinYAML struct {
-	Day      string   `yaml:"day,omitempty"`
+	Enabled  *bool    `yaml:"enabled,omitempty"`
 	Every    []string `yaml:"every,omitempty"`
 	Start    string   `yaml:"start"`
 	Duration string   `yaml:"duration"`
@@ -193,8 +193,8 @@ func (r *GatusEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		for _, mw := range ep.Spec.MaintenanceWindows {
 			epYAML.MaintenanceWindows = append(epYAML.MaintenanceWindows, gatusMaintenanceWinYAML{
-				Day:      mw.Day,
-				Every:    mw.Every,
+				Enabled:  mw.Enabled,
+				Every:    maintenanceDays(mw.Day, mw.Every),
 				Start:    mw.Start,
 				Duration: mw.Duration,
 				Timezone: mw.Timezone,

@@ -203,7 +203,7 @@ func TestGatusEndpointReconciler_InlineAlert(t *testing.T) {
 	y := string(updatedSecret.Data["endpoints.yaml"])
 
 	checks := map[string]string{
-		"type: slack":              "alert type",
+		"type: slack":             "alert type",
 		"failure-threshold: 3":    "failure-threshold",
 		"success-threshold: 2":    "success-threshold",
 		"send-on-resolved: true":  "send-on-resolved",
