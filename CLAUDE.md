@@ -48,7 +48,7 @@ Git hooks (managed by prek, installed by the mise `postinstall` hook) run `go ve
 - **Logging**: use `log.FromContext(ctx)`, never initialize loggers in reconcilers
 - **Tests**: use `fake.Client` (no envtest), shared `newTestScheme(t)` helper in `helpers_test.go`
 - **Default conditions**: when `GatusEndpoint.spec.conditions` is empty, the reconciler injects `[STATUS] == 200` in the generated YAML output (the CR itself is not modified)
-- **Deduplication**: when two `GatusEndpoint` CRs share the same `spec.name`, the first alphabetically (by namespace/name) wins
+- **Deduplication**: Gatus rejects the whole config when two endpoints share a key, i.e. `group` + `name` lowercased, trimmed, with `/ _ . , space # + &` replaced by `-` (`ConvertGroupAndNameToKey`; re-implemented in `internal/controller/endpoint_key.go`). Among `GatusEndpoint` CRs (and separately among `GatusExternalEndpoint` CRs) sharing a key, the first alphabetically (by namespace/name) wins and the others are skipped (logged only). An external endpoint whose key matches any `GatusEndpoint` is also skipped (regular endpoints win). Same `spec.name` in different groups is not a conflict.
 - **Inline alerts**: alerts are defined directly on GatusEndpoint/GatusExternalEndpoint with `type` and optional `providerOverride` fields, matching Gatus config format
 
 ## Runtime Env Vars

@@ -136,8 +136,19 @@ func (r *GatusEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ki < kj
 	})
 
+	// Gatus rejects the whole configuration when two endpoints share a key
+	// (group + name, sanitised), so keep only the first CR per key.
 	var endpoints []gatusEndpointYAML
+	winners := make(map[string]string, len(endpointList.Items))
 	for _, ep := range endpointList.Items {
+		id := ep.Namespace + "/" + ep.Name
+		key := gatusEndpointKey(ep.Spec.Group, ep.Spec.Name)
+		if winner, dup := winners[key]; dup {
+			logger.Info("Skipping GatusEndpoint with duplicate Gatus key",
+				"endpoint", id, "key", key, "winner", winner)
+			continue
+		}
+		winners[key] = id
 
 		alertYAMLs := convertAlerts(ep.Spec.Alerts)
 
