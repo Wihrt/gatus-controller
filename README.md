@@ -130,6 +130,47 @@ spec:
       sendOnResolved: true
 ```
 
+### Environment variables and secrets
+
+Gatus runs `os.ExpandEnv` on its whole configuration before parsing it (`parseAndValidateConfigBytes` in [`config/config.go`](https://github.com/TwiN/gatus/blob/v5.37.0/config/config.go#L283-L289), Gatus v5.37.0). The controller writes CR values verbatim, so in any string field of a CR:
+
+- `$VAR` and `${VAR}` are replaced by the environment variable of the **Gatus pod**; an unset variable becomes an empty string.
+- `$$` is the escape for a literal `$`. Use it in passwords, tokens, regex-like conditions or request bodies that contain a `$`.
+
+For example, `token: "e2e-$HOME-token"` is not stored as written, whereas `token: "e2e-$$HOME-token"` is.
+
+This is also the recommended way to keep secrets out of the ConfigMap. Reference a variable in the CR (e.g. `GatusExternalEndpoint.spec.token`, `ssh.password`, `client.oauth2.clientSecret`, or a value in an alert `providerOverride`) and inject it into the Gatus Deployment from a Kubernetes Secret:
+
+```yaml
+# In the CR
+apiVersion: monitoring.gatus.io/v1alpha1
+kind: GatusExternalEndpoint
+metadata:
+  name: my-worker
+  namespace: default
+spec:
+  name: "Background Worker"
+  token: "${MY_TOKEN}"
+  heartbeat:
+    interval: "30m"
+```
+
+```yaml
+# In the Gatus Deployment (container spec)
+env:
+  - name: MY_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: gatus-credentials
+        key: my-token
+# or load every key of the Secret as a variable
+envFrom:
+  - secretRef:
+      name: gatus-credentials
+```
+
+Otherwise these values are stored in clear text in the CR and in the ConfigMap.
+
 ## Development
 
 ### Prerequisites
